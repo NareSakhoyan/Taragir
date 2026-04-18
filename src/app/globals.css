@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: "Avenir Next", "Segoe UI", "Trebuchet MS", sans-serif;
+    --font-serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    --font-mono: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+    --background: 40 42% 95%;
+    --foreground: 30 28% 16%;
+    --card: 36 34% 98%;
+    --card-foreground: 30 28% 16%;
+    --popover: 36 34% 98%;
+    --popover-foreground: 30 28% 16%;
+    --primary: 163 33% 24%;
+    --primary-foreground: 43 67% 96%;
+    --secondary: 33 43% 90%;
+    --secondary-foreground: 30 28% 22%;
+    --muted: 38 27% 91%;
+    --muted-foreground: 29 15% 40%;
+    --accent: 16 54% 41%;
+    --accent-foreground: 42 67% 96%;
+    --destructive: 2 66% 47%;
+    --destructive-foreground: 40 44% 97%;
+    --border: 34 21% 82%;
+    --input: 34 21% 82%;
+    --ring: 163 33% 24%;
+    --chart-1: 163 33% 24%;
+    --chart-2: 16 54% 41%;
+    --chart-3: 42 78% 41%;
+    --chart-4: 198 35% 38%;
+    --chart-5: 349 50% 40%;
+    --radius: 0.375rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    min-height: 100%;
+  }
+
+  body {
+    @apply min-h-screen bg-background font-sans text-foreground antialiased;
+    background-image:
+      radial-gradient(circle at top left, rgba(25, 84, 73, 0.16), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(169, 88, 41, 0.14), transparent 26%),
+      linear-gradient(180deg, rgba(255, 251, 245, 0.9), rgba(245, 238, 226, 0.96));
+    background-attachment: fixed;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    opacity: 0.45;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgba(109, 92, 68, 0.07) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(109, 92, 68, 0.07) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.65));
+  }
+
+  ::selection {
+    background: rgba(25, 84, 73, 0.18);
+  }
+}
+
+@layer utilities {
+  .surface {
+    @apply bg-card/90 backdrop-blur-sm;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
