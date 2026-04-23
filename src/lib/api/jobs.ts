@@ -1,17 +1,67 @@
 "use client";
 
-import { apiFetch } from "@/lib/api/client";
-import { rememberDocumentJobLink } from "@/lib/supabase/session";
-import type { IngestionJobRead, RetryJobResponse } from "@/lib/types/api";
+import { ApiError, apiFetch } from "@/lib/api/client";
+import {
+  forgetActiveJob,
+  rememberActiveJob,
+  rememberDocumentJobLink,
+  rememberReferenceSourceJobLink,
+} from "@/lib/supabase/session";
+import type { JobRead, ListParams, RetryJobResponse, StageEvent } from "@/lib/types/api";
+import { JOB_ACTIVE_STATUSES } from "@/lib/utils/constants";
+
+type JobListEnvelope<T> = T[] | { items: T[] };
+
+function unwrapJobs<T>(payload: JobListEnvelope<T>) {
+  return Array.isArray(payload) ? payload : payload.items;
+}
+
+function rememberJobResourceLink(job: JobRead) {
+  if (job.document_id) {
+    rememberDocumentJobLink(job.document_id, job.id);
+  }
+
+  const resourceType = job.result_resource_type ?? job.resource_summary?.resource_type;
+  const resourceId = job.result_resource_id ?? job.resource_summary?.id;
+
+  if (resourceType === "reference_source" && resourceId) {
+    rememberReferenceSourceJobLink(resourceId, job.id);
+  }
+
+  if (JOB_ACTIVE_STATUSES.has(job.status)) {
+    rememberActiveJob(job.id);
+  } else {
+    forgetActiveJob(job.id);
+  }
+}
 
 export async function getJob(jobId: string) {
-  const job = await apiFetch<IngestionJobRead>(`/api/v1/jobs/${jobId}`);
-  rememberDocumentJobLink(job.document_id, job.id);
+  const job = await apiFetch<JobRead>(`/api/v1/jobs/${jobId}`);
+  rememberJobResourceLink(job);
   return job;
 }
 
-export async function retryJob(jobId: string) {
-  const response = await apiFetch<RetryJobResponse | IngestionJobRead>(`/api/v1/jobs/${jobId}/retry`, {
+export async function listJobs(params: ListParams = {}) {
+  try {
+    const response = await apiFetch<JobListEnvelope<JobRead>>("/api/v1/jobs", {
+      searchParams: {
+        limit: params.limit ?? 12,
+        offset: params.offset ?? 0,
+      },
+    });
+
+    return unwrapJobs(response);
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 404 || error.status === 405)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+export async function retryJobStart(jobId: string) {
+  const response = await apiFetch<RetryJobResponse | JobRead>(`/api/v1/jobs/${jobId}/retry`, {
     method: "POST",
   });
 
@@ -25,9 +75,22 @@ export async function retryJob(jobId: string) {
 
   const job = normalized.job;
 
-  if (job.document_id) {
-    rememberDocumentJobLink(job.document_id, job.id);
-  }
+  rememberJobResourceLink(job);
+  rememberActiveJob(job.id);
 
   return normalized;
+}
+
+export const retryJob = retryJobStart;
+
+export async function getJobEvents(jobId: string) {
+  try {
+    return await apiFetch<StageEvent[]>(`/api/v1/jobs/${jobId}/events`);
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 404 || error.status === 405)) {
+      return [];
+    }
+
+    throw error;
+  }
 }

@@ -12,12 +12,14 @@ import { TableLoadingState } from "@/components/ui/table-loading-state";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { useLexemes } from "@/lib/hooks/use-lexemes";
 import { useI18n } from "@/lib/i18n/use-i18n";
+import type { ReferenceStatusFilter } from "@/lib/types/api";
 import { LEXEMES_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS } from "@/lib/utils/constants";
 
 export default function LexemesPage() {
   const { locale, messages } = useI18n();
   const [draftSearch, setDraftSearch] = useState("");
   const [search, setSearch] = useState("");
+  const [referenceStatus, setReferenceStatus] = useState<ReferenceStatusFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(LEXEMES_PAGE_SIZE);
   const [sortKey, setSortKey] = useState<LexemeSortKey | null>(null);
@@ -25,6 +27,7 @@ export default function LexemesPage() {
   const offset = (currentPage - 1) * pageSize;
   const lexemesQuery = useLexemes({
     search: search || undefined,
+    reference_status: referenceStatus,
     limit: pageSize,
     offset,
   });
@@ -109,6 +112,25 @@ export default function LexemesPage() {
                   {messages.common.search}
                 </Button>
               </form>
+            </div>
+
+            <div className="mt-5 max-w-xs">
+              <label className="mb-2 block text-sm font-medium" htmlFor="lexemes-reference-filter">
+                {messages.lexemes.referenceLabel}
+              </label>
+              <select
+                className="flex h-11 w-full rounded-md border border-input bg-background/80 px-4 py-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+                id="lexemes-reference-filter"
+                onChange={(event) => {
+                  setCurrentPage(1);
+                  setReferenceStatus(event.target.value as ReferenceStatusFilter);
+                }}
+                value={referenceStatus}
+              >
+                <option value="all">{messages.reference.filters.all}</option>
+                <option value="matched">{messages.reference.filters.matched}</option>
+                <option value="unmatched">{messages.reference.filters.unmatched}</option>
+              </select>
             </div>
           </section>
 

@@ -6,7 +6,9 @@ import { AlertTriangle } from "lucide-react";
 import { GroupClassificationBadges } from "@/components/lexicon/group-classification-badges";
 import { GroupLinkedBadge } from "@/components/lexicon/group-linked-badge";
 import { GroupStateBadge } from "@/components/lexicon/group-state-badge";
+import { ReferenceMatchBadge } from "@/components/lexicon/reference-match-badge";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
@@ -20,12 +22,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useLexiconGroup } from "@/lib/hooks/use-lexicon-group";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { ROUTES } from "@/lib/utils/constants";
+import { buildDocumentEvidenceHref } from "@/lib/utils/evidence-links";
 import { formatNumber } from "@/lib/utils/format";
 
 type LexiconGroupDetailSheetProps = {
   normalizedForm: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onViewMatches?: (normalizedForm: string) => void;
 };
 
 function StatCard({ label, value }: { label: string; value: string }) {
@@ -61,7 +65,12 @@ function HighlightedSnippet({ snippet, token }: { snippet: string; token: string
   );
 }
 
-export function LexiconGroupDetailSheet({ normalizedForm, open, onOpenChange }: LexiconGroupDetailSheetProps) {
+export function LexiconGroupDetailSheet({
+  normalizedForm,
+  open,
+  onOpenChange,
+  onViewMatches,
+}: LexiconGroupDetailSheetProps) {
   const { href, locale, messages } = useI18n();
   const groupQuery = useLexiconGroup(normalizedForm, open);
 
@@ -129,6 +138,21 @@ export function LexiconGroupDetailSheet({ normalizedForm, open, onOpenChange }: 
                   ) : (
                     <p className="text-sm text-muted-foreground">{messages.lexicon.detail.unlinkedDescription}</p>
                   )}
+                  <div className="rounded-md border border-border/70 bg-muted/10 p-4">
+                    <ReferenceMatchBadge
+                      bestMatch={groupQuery.data.best_reference_match}
+                      hasMatch={groupQuery.data.has_reference_match}
+                      matchCount={groupQuery.data.reference_match_count}
+                      showUnmatched
+                    />
+                    {groupQuery.data.normalized_form ? (
+                      <div className="mt-3">
+                        <Button onClick={() => onViewMatches?.(groupQuery.data.normalized_form)} type="button" variant="outline">
+                          {messages.reference.actions.viewMatches}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3">
@@ -172,7 +196,12 @@ export function LexiconGroupDetailSheet({ normalizedForm, open, onOpenChange }: 
                                   <div className="space-y-1">
                                     <Link
                                       className="font-medium text-primary underline-offset-4 hover:underline"
-                                      href={href(`${ROUTES.documents}/${occurrence.document_id}`)}
+                                      href={href(
+                                        buildDocumentEvidenceHref(
+                                          occurrence.document_id,
+                                          occurrence.page_number,
+                                        ) ?? `${ROUTES.documents}/${occurrence.document_id}`,
+                                      )}
                                     >
                                       {occurrence.document_title}
                                     </Link>
@@ -207,7 +236,12 @@ export function LexiconGroupDetailSheet({ normalizedForm, open, onOpenChange }: 
                               </p>
                               <Link
                                 className="block font-medium text-primary underline-offset-4 hover:underline"
-                                href={href(`${ROUTES.documents}/${occurrence.document_id}`)}
+                                href={href(
+                                  buildDocumentEvidenceHref(
+                                    occurrence.document_id,
+                                    occurrence.page_number,
+                                  ) ?? `${ROUTES.documents}/${occurrence.document_id}`,
+                                )}
                               >
                                 {occurrence.document_title}
                               </Link>

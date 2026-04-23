@@ -1,6 +1,11 @@
 import type { Locale } from "@/lib/i18n/config";
 import { defaultLocale, getIntlLocale } from "@/lib/i18n/config";
-import type { DocumentRead } from "@/lib/types/api";
+import type {
+  DocumentRead,
+  ReferenceImportMethod,
+  ReferenceMatchType,
+  ReferenceMatchingRunScope,
+} from "@/lib/types/api";
 
 export function formatDate(value: string | null | undefined, locale: Locale = defaultLocale) {
   if (!value) {
@@ -65,4 +70,84 @@ export function truncateText(value: string, maxLength = 160) {
   }
 
   return `${value.slice(0, maxLength - 1)}…`;
+}
+
+export function humanizeSnakeCase(value: string) {
+  if (!value) {
+    return value;
+  }
+
+  return value
+    .split("_")
+    .filter(Boolean)
+    .map((part) => capitalize(part))
+    .join(" ");
+}
+
+export function formatPercent(
+  value: number | null | undefined,
+  locale: Locale = defaultLocale,
+  maximumFractionDigits = 1,
+) {
+  if (value == null) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat(getIntlLocale(locale), {
+    style: "percent",
+    maximumFractionDigits,
+  }).format(value);
+}
+
+export function formatReferenceMatchType(value: ReferenceMatchType) {
+  switch (value) {
+    case "exact":
+      return "Exact";
+    case "normalized":
+      return "Normalized";
+    case "fuzzy":
+      return "Fuzzy";
+    default:
+      return humanizeSnakeCase(value);
+  }
+}
+
+export function formatReferenceMatchingRunScope(value: ReferenceMatchingRunScope) {
+  switch (value) {
+    case "lexicon_groups":
+      return "Lexicon groups";
+    case "lexemes":
+      return "Lexemes";
+    case "all":
+      return "All";
+    default:
+      return humanizeSnakeCase(value);
+  }
+}
+
+export function formatReferenceImportMethod(value: ReferenceImportMethod | null | undefined) {
+  switch (value) {
+    case "txt":
+      return "TXT";
+    case "csv":
+      return "CSV";
+    case "docx":
+      return "DOCX";
+    case "pdf_text":
+      return "PDF (text extraction)";
+    case "pdf_ocr":
+      return "PDF (OCR)";
+    case "xlsx":
+      return "XLSX";
+    case null:
+    case undefined:
+    case "":
+      return "—";
+    default:
+      return humanizeSnakeCase(value);
+  }
+}
+
+export function isOcrReferenceImportMethod(value: ReferenceImportMethod | null | undefined) {
+  return value === "pdf_ocr";
 }

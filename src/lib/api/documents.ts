@@ -1,11 +1,12 @@
 "use client";
 
 import { apiFetch } from "@/lib/api/client";
-import { rememberDocumentJobLink } from "@/lib/supabase/session";
+import { rememberActiveJob, rememberDocumentJobLink } from "@/lib/supabase/session";
 import type {
   DocumentPageRead,
   DocumentRead,
   DocumentUploadResponse,
+  JobRead,
   ListParams,
   OffsetPagination,
 } from "@/lib/types/api";
@@ -75,7 +76,18 @@ export async function listDocumentPages(documentId: string) {
   return items;
 }
 
-export async function uploadDocument(input: { file: File; title?: string }) {
+type RawDocumentUploadResponse = DocumentUploadResponse | { document: DocumentRead; job: JobRead };
+
+function normalizeDocumentUploadResponse(response: RawDocumentUploadResponse): DocumentUploadResponse {
+  return {
+    document: response.document ?? null,
+    job: response.job,
+    message: "message" in response ? response.message ?? null : null,
+    resource_summary: "resource_summary" in response ? response.resource_summary ?? null : null,
+  };
+}
+
+export async function startDocumentUpload(input: { file: File; title?: string }) {
   const formData = new FormData();
   formData.set("file", input.file);
 
@@ -83,12 +95,22 @@ export async function uploadDocument(input: { file: File; title?: string }) {
     formData.set("title", input.title.trim());
   }
 
-  const response = await apiFetch<DocumentUploadResponse>("/api/v1/documents/upload", {
-    method: "POST",
-    body: formData,
-  });
+  const response = normalizeDocumentUploadResponse(
+    await apiFetch<RawDocumentUploadResponse>("/api/v1/documents/upload", {
+      method: "POST",
+      body: formData,
+    }),
+  );
 
-  rememberDocumentJobLink(response.document.id, response.job.id);
+  const linkedDocumentId = response.document?.id ?? response.job.document_id;
+
+  if (linkedDocumentId) {
+    rememberDocumentJobLink(linkedDocumentId, response.job.id);
+  }
+
+  rememberActiveJob(response.job.id);
 
   return response;
 }
+
+export const uploadDocument = startDocumentUpload;

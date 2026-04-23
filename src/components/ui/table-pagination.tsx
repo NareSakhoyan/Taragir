@@ -23,6 +23,7 @@ type TablePaginationProps = {
   pageSizeOptions: number[];
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
+  isBusy?: boolean;
 };
 
 function getVisiblePages(currentPage: number, totalPages: number) {
@@ -57,6 +58,7 @@ export function TablePagination({
   pageSizeOptions,
   onPageChange,
   onPageSizeChange,
+  isBusy = false,
 }: TablePaginationProps) {
   const { messages } = useI18n();
   const [pageInput, setPageInput] = useState("");
@@ -79,10 +81,11 @@ export function TablePagination({
   return (
     <div className="mt-6 flex flex-col gap-4 text-sm text-muted-foreground xl:flex-row xl:items-center xl:justify-between">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-        <label className="flex items-center gap-2">
-          <span>{messages.common.rowsPerPage}</span>
+        <label className="flex items-center gap-2 whitespace-nowrap">
+          <span className="whitespace-nowrap">{messages.common.rowsPerPage}</span>
           <select
             className="h-10 rounded-md border border-input bg-background/80 px-3 text-sm text-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+            disabled={isBusy}
             onChange={(event) => onPageSizeChange(Number(event.target.value))}
             value={pageSize}
           >
@@ -106,6 +109,7 @@ export function TablePagination({
           </label>
           <Input
             className="h-10 w-24"
+            disabled={isBusy}
             id={pageJumpInputId}
             inputMode="numeric"
             max={totalPages}
@@ -114,7 +118,7 @@ export function TablePagination({
             placeholder={String(currentPage)}
             value={pageInput}
           />
-          <Button size="icon" type="submit" variant="outline">
+          <Button disabled={isBusy} size="icon" type="submit" variant="outline">
             <ChevronRight className="h-4 w-4" />
             <span className="sr-only">{messages.common.go}</span>
           </Button>
@@ -126,7 +130,7 @@ export function TablePagination({
           <PaginationItem>
             <PaginationLink
               aria-label={messages.common.first}
-              disabled={currentPage <= 1}
+              disabled={isBusy || currentPage <= 1}
               onClick={() => onPageChange(1)}
               size="icon"
               variant="outline"
@@ -137,7 +141,7 @@ export function TablePagination({
 
           <PaginationItem>
             <PaginationPrevious
-              disabled={currentPage <= 1}
+              disabled={isBusy || currentPage <= 1}
               onClick={() => onPageChange(Math.max(1, currentPage - 1))}
               size="icon"
               variant="outline"
@@ -149,7 +153,11 @@ export function TablePagination({
               {page === "ellipsis" ? (
                 <PaginationEllipsis />
               ) : (
-                <PaginationLink isActive={page === currentPage} onClick={() => onPageChange(page)} variant={page === currentPage ? "default" : "ghost"}>
+                <PaginationLink
+                  isActive={page === currentPage}
+                  onClick={() => !isBusy && onPageChange(page)}
+                  variant={page === currentPage ? "default" : "ghost"}
+                >
                   {page}
                 </PaginationLink>
               )}
@@ -158,7 +166,7 @@ export function TablePagination({
 
           <PaginationItem>
             <PaginationNext
-              disabled={currentPage >= totalPages}
+              disabled={isBusy || currentPage >= totalPages}
               onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
               size="icon"
               variant="outline"
@@ -168,7 +176,7 @@ export function TablePagination({
           <PaginationItem>
             <PaginationLink
               aria-label={messages.common.last}
-              disabled={currentPage >= totalPages}
+              disabled={isBusy || currentPage >= totalPages}
               onClick={() => onPageChange(totalPages)}
               size="icon"
               variant="outline"

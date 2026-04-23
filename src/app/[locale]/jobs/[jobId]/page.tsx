@@ -1,38 +1,34 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useParams } from "next/navigation";
-import { toast } from "sonner";
 
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { JobProgressCard } from "@/components/jobs/job-progress-card";
 import { AppShell } from "@/components/layout/app-shell";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useJob, useRetryJob } from "@/lib/hooks/use-job";
+import { useJob, useJobEvents, useRetryJobStart } from "@/lib/hooks/use-job";
+import { useStartAndRedirect } from "@/lib/hooks/use-start-and-redirect";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { ROUTES } from "@/lib/utils/constants";
 
 export default function JobDetailPage() {
   const params = useParams<{ locale: string; jobId: string }>();
-  const router = useRouter();
-  const { href, messages } = useI18n();
+  const { handleAcceptedStart, handleStartError } = useStartAndRedirect();
+  const { messages } = useI18n();
   const jobQuery = useJob(params.jobId);
-  const retryMutation = useRetryJob();
+  const jobEventsQuery = useJobEvents(params.jobId, jobQuery.data?.status, jobQuery.isSuccess);
+  const retryMutation = useRetryJobStart();
 
   async function handleRetry() {
     try {
       const result = await retryMutation.mutateAsync(params.jobId);
-      toast.success(messages.job.retryStartedTitle, {
+      handleAcceptedStart({
+        title: messages.job.retryStartedTitle,
         description: result.message || messages.job.retryStartedDescription,
+        path: `${ROUTES.jobs}/${result.job.id}`,
       });
-
-      if (result.job.id) {
-        router.push(href(`${ROUTES.jobs}/${result.job.id}`));
-      }
     } catch (error) {
-      toast.error(messages.job.retryFailedTitle, {
-        description: error instanceof Error ? error.message : undefined,
-      });
+      handleStartError(messages.job.retryFailedTitle, error);
     }
   }
 
@@ -45,6 +41,7 @@ export default function JobDetailPage() {
           <div className="rounded-md border border-destructive/30 bg-destructive/10 px-6 py-4 text-sm text-destructive shadow-sm">{jobQuery.error.message}</div>
         ) : jobQuery.data ? (
           <JobProgressCard
+            events={jobEventsQuery.data ?? []}
             isRetrying={retryMutation.isPending}
             job={jobQuery.data}
             onRetry={jobQuery.data.can_retry ? handleRetry : undefined}

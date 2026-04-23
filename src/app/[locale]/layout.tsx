@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { BackgroundJobNotifier } from "@/components/jobs/background-job-notifier";
 import { isLocale } from "@/lib/i18n/config";
 
 type LocaleLayoutProps = {
@@ -14,5 +15,10 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
     notFound();
   }
 
-  return children;
+  return (
+    <>
+      <BackgroundJobNotifier />
+      {children}
+    </>
+  );
 }

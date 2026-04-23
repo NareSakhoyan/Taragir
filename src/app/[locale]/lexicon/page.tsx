@@ -2,13 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import { toast } from "sonner";
+import { useSearchParams } from "next/navigation";
 
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { CreateLexemeDialog } from "@/components/lexicon/create-lexeme-dialog";
 import { LexiconGroupDetailSheet } from "@/components/lexicon/lexicon-group-detail-sheet";
 import { LexiconGroupsTable, type LexiconGroupSortKey, type SortDirection } from "@/components/lexicon/lexicon-groups-table";
 import { MergeIntoLexemeDialog } from "@/components/lexicon/merge-into-lexeme-dialog";
+import { ReferenceMatchesSheet } from "@/components/lexicon/reference-matches-sheet";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,24 +17,31 @@ import { TableLoadingState } from "@/components/ui/table-loading-state";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { useDocumentsSummary } from "@/lib/hooks/use-documents";
 import { useIgnoreLexiconGroups, useLexiconGroups, useUnignoreLexiconGroups } from "@/lib/hooks/use-lexicon-groups";
+import { useLexiconGroupReferenceMatches } from "@/lib/hooks/use-references";
 import { useI18n } from "@/lib/i18n/use-i18n";
-import type { LexiconView } from "@/lib/types/api";
+import { toast } from "@/lib/notifications";
+import type { LexiconView, ReferenceStatusFilter } from "@/lib/types/api";
 import { LEXICON_GROUPS_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS } from "@/lib/utils/constants";
 import { titleFromDocument } from "@/lib/utils/format";
 
 export default function LexiconPage() {
+  const searchParams = useSearchParams();
   const { locale, messages } = useI18n();
+  const searchParam = searchParams.get("search") ?? "";
+  const detailParam = searchParams.get("detail");
   const documentsQuery = useDocumentsSummary();
-  const [draftSearch, setDraftSearch] = useState("");
-  const [search, setSearch] = useState("");
+  const [draftSearch, setDraftSearch] = useState(searchParam);
+  const [search, setSearch] = useState(searchParam);
   const [view, setView] = useState<LexiconView>("candidates");
   const [documentId, setDocumentId] = useState("");
+  const [referenceStatus, setReferenceStatus] = useState<ReferenceStatusFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(LEXICON_GROUPS_PAGE_SIZE);
   const [sortKey, setSortKey] = useState<LexiconGroupSortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection | null>(null);
   const [selectedForms, setSelectedForms] = useState<string[]>([]);
-  const [detailForm, setDetailForm] = useState<string | null>(null);
+  const [detailForm, setDetailForm] = useState<string | null>(detailParam);
+  const [referenceMatchForm, setReferenceMatchForm] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const ignoreMutation = useIgnoreLexiconGroups();
@@ -44,9 +52,11 @@ export default function LexiconPage() {
     search: search || undefined,
     view,
     document_id: documentId || undefined,
+    reference_status: referenceStatus,
     limit: pageSize,
     offset,
   });
+  const referenceMatchesQuery = useLexiconGroupReferenceMatches(referenceMatchForm, Boolean(referenceMatchForm));
 
   const total = lexiconQuery.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -142,6 +152,11 @@ export default function LexiconPage() {
     setSortDirection("asc");
   }
 
+  function openReferenceMatches(normalizedForm: string) {
+    setDetailForm(null);
+    setReferenceMatchForm(normalizedForm);
+  }
+
   async function handleIgnoreSelected() {
     if (!selectedForms.length) {
       return;
@@ -214,7 +229,7 @@ export default function LexiconPage() {
               </form>
             </div>
 
-            <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
+            <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem_14rem]">
               <div className="flex flex-wrap gap-2">
                 {viewOptions.map((option) => (
                   <Button
@@ -255,6 +270,20 @@ export default function LexiconPage() {
                     {document.label}
                   </option>
                 ))}
+              </select>
+
+              <select
+                className="flex h-11 w-full rounded-md border border-input bg-background/80 px-4 py-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+                onChange={(event) => {
+                  setSelectedForms([]);
+                  setReferenceStatus(event.target.value as ReferenceStatusFilter);
+                  setCurrentPage(1);
+                }}
+                value={referenceStatus}
+              >
+                <option value="all">{messages.lexicon.filters.referenceLabel}: {messages.lexicon.filters.allReferenceStatuses}</option>
+                <option value="matched">{messages.lexicon.filters.referenceLabel}: {messages.lexicon.filters.matchedReferenceStatuses}</option>
+                <option value="unmatched">{messages.lexicon.filters.referenceLabel}: {messages.lexicon.filters.unmatchedReferenceStatuses}</option>
               </select>
             </div>
           </section>
@@ -314,6 +343,7 @@ export default function LexiconPage() {
                   onSelectedFormsChange={setSelectedForms}
                   onSort={changeSort}
                   onViewDetails={setDetailForm}
+                  onViewMatches={openReferenceMatches}
                   selectedForms={selectedForms}
                   sortDirection={sortDirection}
                   sortKey={sortKey}
@@ -339,7 +369,23 @@ export default function LexiconPage() {
           </section>
         </div>
 
-        <LexiconGroupDetailSheet normalizedForm={detailForm} onOpenChange={(open) => !open && setDetailForm(null)} open={Boolean(detailForm)} />
+        <LexiconGroupDetailSheet
+          normalizedForm={detailForm}
+          onOpenChange={(open) => !open && setDetailForm(null)}
+          onViewMatches={openReferenceMatches}
+          open={Boolean(detailForm)}
+        />
+        <ReferenceMatchesSheet
+          errorMessage={referenceMatchesQuery.error?.message ?? null}
+          hasMatch={referenceMatchesQuery.data?.has_match ?? false}
+          isLoading={referenceMatchesQuery.isLoading}
+          matches={referenceMatchesQuery.data?.matches ?? []}
+          onOpenChange={(open) => !open && setReferenceMatchForm(null)}
+          open={Boolean(referenceMatchForm)}
+          targetLabel={messages.reference.labels.targetNormalizedForm}
+          targetValue={referenceMatchesQuery.data?.target_normalized_form ?? referenceMatchForm ?? ""}
+          title={messages.reference.actions.viewMatches}
+        />
         <CreateLexemeDialog onOpenChange={setCreateDialogOpen} open={createDialogOpen} selectedNormalizedForms={selectedForms} />
         <MergeIntoLexemeDialog onOpenChange={setMergeDialogOpen} open={mergeDialogOpen} selectedNormalizedForms={selectedForms} />
       </AppShell>

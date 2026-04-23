@@ -1,7 +1,6 @@
 "use client";
 
 import { useDeferredValue, useMemo, useState } from "react";
-import { toast } from "sonner";
 
 import { ApiError } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
@@ -19,6 +18,7 @@ import { useMergeLexemeGroups } from "@/lib/hooks/use-merge-lexeme-groups";
 import { useLexemes } from "@/lib/hooks/use-lexemes";
 import type { Locale } from "@/lib/i18n/config";
 import { useI18n } from "@/lib/i18n/use-i18n";
+import { toast } from "@/lib/notifications";
 import type { LexemeSummary } from "@/lib/types/api";
 import { formatNumber } from "@/lib/utils/format";
 

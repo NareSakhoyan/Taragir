@@ -1,6 +1,6 @@
 "use client";
 
-import { BookMarked, BookText, Files, LayoutGrid, LibraryBig, type LucideIcon } from "lucide-react";
+import { BookMarked, BookText, Clock3, Files, LayoutGrid, LibraryBig, Search, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -51,6 +51,21 @@ export function SidebarNavigation({ onNavigate, className, inline = false }: Sid
       href: ROUTES.lexemes,
       label: messages.nav.lexemes,
       icon: BookMarked,
+    },
+    {
+      href: ROUTES.references,
+      label: messages.nav.references,
+      icon: BookText,
+    },
+    {
+      href: ROUTES.referenceMatching,
+      label: messages.nav.referenceMatching,
+      icon: Search,
+    },
+    {
+      href: ROUTES.jobs,
+      label: messages.nav.jobs,
+      icon: Clock3,
     },
   ];
 

@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Eye } from "lucide-react";
 import { GroupClassificationBadges } from "@/components/lexicon/group-classification-badges";
 import { GroupLinkedBadge } from "@/components/lexicon/group-linked-badge";
 import { GroupStateBadge } from "@/components/lexicon/group-state-badge";
+import { ReferenceMatchBadge } from "@/components/lexicon/reference-match-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,6 +19,7 @@ type LexiconGroupsTableProps = {
   selectedForms: string[];
   onSelectedFormsChange: (forms: string[]) => void;
   onViewDetails: (normalizedForm: string) => void;
+  onViewMatches: (normalizedForm: string) => void;
   sortKey: LexiconGroupSortKey | null;
   sortDirection: SortDirection | null;
   onSort: (key: LexiconGroupSortKey) => void;
@@ -111,6 +113,7 @@ export function LexiconGroupsTable({
   selectedForms,
   onSelectedFormsChange,
   onViewDetails,
+  onViewMatches,
   sortKey,
   sortDirection,
   onSort,
@@ -170,6 +173,7 @@ export function LexiconGroupsTable({
               <SortableHead activeSortKey={sortKey} direction={sortDirection} label={messages.lexicon.table.pages} onSort={onSort} sortKey="page_count" />
               <TableHead>{messages.lexicon.table.sampleTokens}</TableHead>
               <TableHead>{messages.lexicon.table.sourceDocuments}</TableHead>
+              <TableHead>{messages.lexicon.table.reference}</TableHead>
               <SortableHead activeSortKey={sortKey} direction={sortDirection} label={messages.lexicon.table.state} onSort={onSort} sortKey="group_state" />
               {showReviewerSignals ? (
                 <>
@@ -218,6 +222,15 @@ export function LexiconGroupsTable({
                 <TableCell className="min-w-[14rem]">
                   <SampleDocuments titles={group.sample_document_titles} />
                 </TableCell>
+                <TableCell className="min-w-[14rem]">
+                  <ReferenceMatchBadge
+                    bestMatch={group.best_reference_match}
+                    compact
+                    hasMatch={group.has_reference_match}
+                    matchCount={group.reference_match_count}
+                    showUnmatched
+                  />
+                </TableCell>
                 <TableCell>
                   <GroupStateBadge state={group.group_state} />
                 </TableCell>
@@ -237,6 +250,16 @@ export function LexiconGroupsTable({
                 ) : null}
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
+                    <Button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onViewMatches(group.normalized_form);
+                      }}
+                      size="sm"
+                      variant="outline"
+                    >
+                      {messages.reference.actions.viewMatches}
+                    </Button>
                     {group.linked_lexeme_id ? (
                       <div onClick={(event) => event.stopPropagation()}>
                         <GroupLinkedBadge
@@ -290,6 +313,13 @@ export function LexiconGroupsTable({
                   <SampleTokens tokens={group.sample_tokens} />
                   <SampleDocuments titles={group.sample_document_titles} />
                   <div className="flex flex-wrap gap-2">
+                    <ReferenceMatchBadge
+                      bestMatch={group.best_reference_match}
+                      compact
+                      hasMatch={group.has_reference_match}
+                      matchCount={group.reference_match_count}
+                      showUnmatched
+                    />
                     <GroupStateBadge state={group.group_state} />
                     {showReviewerSignals ? (
                       <>
@@ -317,17 +347,30 @@ export function LexiconGroupsTable({
             ) : null}
 
             <div className="mt-4 flex justify-end">
-              <Button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onViewDetails(group.normalized_form);
-                }}
-                size="icon"
-                variant="outline"
-              >
-                <Eye className="h-4 w-4" />
-                <span className="sr-only">{messages.lexicon.table.viewDetails}</span>
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onViewMatches(group.normalized_form);
+                  }}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  {messages.reference.actions.viewMatches}
+                </Button>
+                <Button
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onViewDetails(group.normalized_form);
+                  }}
+                  size="icon"
+                  variant="outline"
+                >
+                  <Eye className="h-4 w-4" />
+                  <span className="sr-only">{messages.lexicon.table.viewDetails}</span>
+                </Button>
+              </div>
             </div>
           </div>
         ))}

@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, FileStack } from "lucide-react";
 import { useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { toast } from "sonner";
+import { useParams, usePathname, useSearchParams } from "next/navigation";
 
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { DocumentStatusBadge } from "@/components/documents/document-status-badge";
@@ -18,28 +17,44 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDocument } from "@/lib/hooks/use-document";
 import { useDocumentOccurrences } from "@/lib/hooks/use-document-occurrences";
 import { useDocumentPages } from "@/lib/hooks/use-document-pages";
-import { useJob, useRetryJob } from "@/lib/hooks/use-job";
+import { useJob, useRetryJobStart } from "@/lib/hooks/use-job";
+import { useStartAndRedirect } from "@/lib/hooks/use-start-and-redirect";
+import { useDocumentWordCandidates } from "@/lib/hooks/use-words";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { getRememberedDocumentJobLink } from "@/lib/supabase/session";
-import { OCCURRENCES_PAGE_SIZE, ROUTES } from "@/lib/utils/constants";
+import type { WordCandidateFilter, WordEvidenceSummary } from "@/lib/types/api";
+import { OCCURRENCES_PAGE_SIZE, ROUTES, TABLE_PAGE_SIZE_OPTIONS } from "@/lib/utils/constants";
 import { formatBytes, formatDate, formatNumber, titleFromDocument } from "@/lib/utils/format";
+import { SourceWordCandidatesTable } from "@/components/words/source-word-candidates-table";
+import { WordDetailDrawer } from "@/components/words/word-detail-drawer";
+import { Input } from "@/components/ui/input";
+import {
+  buildPathWithDocumentPage,
+  parseDocumentEvidencePage,
+} from "@/lib/utils/evidence-links";
 
 export default function DocumentDetailPage() {
   const params = useParams<{ locale: string; documentId: string }>();
-  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { handleAcceptedStart, handleStartError } = useStartAndRedirect();
   const { href, locale, messages } = useI18n();
   const documentId = params.documentId;
   const documentQuery = useDocument(documentId);
   const pagesQuery = useDocumentPages(documentId);
-  const retryMutation = useRetryJob();
+  const retryMutation = useRetryJobStart();
 
-  const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [occurrenceFilters, setOccurrenceFilters] = useState({
     pageNumber: "",
     normalizedToken: "",
   });
   const [occurrenceOffset, setOccurrenceOffset] = useState(0);
+  const [wordFilter, setWordFilter] = useState<WordCandidateFilter>("all");
+  const [wordDraftSearch, setWordDraftSearch] = useState("");
+  const [wordSearch, setWordSearch] = useState("");
+  const [wordPage, setWordPage] = useState(1);
+  const [wordPageSize, setWordPageSize] = useState<number>(TABLE_PAGE_SIZE_OPTIONS[1] ?? 20);
+  const [selectedWord, setSelectedWord] = useState<WordEvidenceSummary | null>(null);
 
   const occurrencesQuery = useDocumentOccurrences(documentId, {
     page_number: occurrenceFilters.pageNumber ? Number(occurrenceFilters.pageNumber) : undefined,
@@ -47,11 +62,23 @@ export default function DocumentDetailPage() {
     limit: OCCURRENCES_PAGE_SIZE,
     offset: occurrenceOffset,
   });
+  const wordCandidatesQuery = useDocumentWordCandidates(
+    documentId,
+    {
+      filter: wordFilter,
+      search: wordSearch || undefined,
+      limit: wordPageSize,
+      offset: (wordPage - 1) * wordPageSize,
+    },
+    documentQuery.isSuccess,
+  );
 
   const pages = pagesQuery.data ?? [];
-  const effectiveSelectedPageId =
-    selectedPageId && pages.some((page) => page.id === selectedPageId) ? selectedPageId : pages[0]?.id ?? null;
-  const selectedPage = pages.find((page) => page.id === effectiveSelectedPageId) ?? null;
+  const requestedPageNumber = parseDocumentEvidencePage(searchParams.get("page"));
+  const selectedPage =
+    (requestedPageNumber != null
+      ? pages.find((page) => page.page_number === requestedPageNumber) ?? null
+      : null) ?? pages[0] ?? null;
   const knownJobId = searchParams.get("jobId") ?? getRememberedDocumentJobLink(documentId);
   const relatedJobQuery = useJob(knownJobId ?? "");
 
@@ -67,18 +94,22 @@ export default function DocumentDetailPage() {
 
     try {
       const result = await retryMutation.mutateAsync(failureJob.id);
-      toast.success(messages.job.retryStartedTitle, {
+      handleAcceptedStart({
+        title: messages.job.retryStartedTitle,
         description: result.message || messages.job.retryStartedDescription,
+        path: `${ROUTES.jobs}/${result.job.id}`,
       });
-
-      if (result.job.id) {
-        router.push(href(`${ROUTES.jobs}/${result.job.id}`));
-      }
     } catch (error) {
-      toast.error(messages.job.retryFailedTitle, {
-        description: error instanceof Error ? error.message : undefined,
-      });
+      handleStartError(messages.job.retryFailedTitle, error);
     }
+  }
+
+  function handleSelectPage(pageNumber: number) {
+    window.history.replaceState(
+      null,
+      "",
+      buildPathWithDocumentPage(pathname, searchParams, pageNumber),
+    );
   }
 
   return (
@@ -154,12 +185,80 @@ export default function DocumentDetailPage() {
               {pagesQuery.isLoading ? (
                 <Skeleton className="h-[24rem]" />
               ) : (
-                <PageList pages={pages} selectedPageId={effectiveSelectedPageId} onSelectPage={(page) => setSelectedPageId(page.id)} />
+                <PageList
+                  pages={pages}
+                  selectedPageId={selectedPage?.id ?? null}
+                  onSelectPage={(page) => handleSelectPage(page.page_number)}
+                />
               )}
             </div>
 
             <div className="min-w-0 border-t border-border/70 pt-10 xl:border-t-0 xl:pl-10 xl:pt-0">
               <PageTextViewer page={selectedPage} />
+            </div>
+          </section>
+
+          <section className="border-b border-border/80 py-10">
+            <div className="space-y-1 border-b border-border/70 pb-5">
+              <h3 className="text-lg font-semibold tracking-tight">{messages.documentDetail.wordsTitle}</h3>
+              <p className="text-sm text-muted-foreground">{messages.documentDetail.wordsDescription}</p>
+            </div>
+
+            <div className="mt-4 grid gap-3 lg:grid-cols-[14rem_minmax(0,1fr)_auto]">
+              <select
+                className="flex h-11 w-full rounded-md border border-input bg-background/80 px-4 py-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+                onChange={(event) => {
+                  setWordFilter(event.target.value as WordCandidateFilter);
+                  setWordPage(1);
+                }}
+                value={wordFilter}
+              >
+                <option value="all">{messages.words.filters.all}</option>
+                <option value="unlinked">{messages.words.filters.unlinked}</option>
+                <option value="linked">{messages.words.filters.linked}</option>
+                <option value="suspicious">{messages.words.filters.suspicious}</option>
+                <option value="ignored">{messages.words.filters.ignored}</option>
+                <option value="matched">{messages.words.filters.matched}</option>
+                <option value="unmatched">{messages.words.filters.unmatched}</option>
+              </select>
+
+              <form
+                className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  setWordPage(1);
+                  setWordSearch(wordDraftSearch.trim());
+                }}
+              >
+                <Input
+                  onChange={(event) => setWordDraftSearch(event.target.value)}
+                  placeholder={messages.documentDetail.wordsSearchPlaceholder}
+                  value={wordDraftSearch}
+                />
+                <Button type="submit" variant="outline">
+                  {messages.common.search}
+                </Button>
+              </form>
+            </div>
+
+            <div className="mt-6">
+              <SourceWordCandidatesTable
+                currentPage={wordPage}
+                data={wordCandidatesQuery.data}
+                emptyDescription={messages.documentDetail.wordsEmptyDescription}
+                emptyTitle={messages.documentDetail.wordsEmptyTitle}
+                errorMessage={wordCandidatesQuery.error?.message}
+                isFetching={wordCandidatesQuery.isFetching}
+                isLoading={wordCandidatesQuery.isLoading}
+                onPageChange={setWordPage}
+                onPageSizeChange={(nextPageSize) => {
+                  setWordPageSize(nextPageSize);
+                  setWordPage(1);
+                }}
+                onViewDetails={setSelectedWord}
+                pageSize={wordPageSize}
+                variant="document"
+              />
             </div>
           </section>
 
@@ -186,6 +285,16 @@ export default function DocumentDetailPage() {
               {messages.documentDetail.pagesPending}
             </div>
           ) : null}
+
+          <WordDetailDrawer
+            onOpenChange={(open) => {
+              if (!open) {
+                setSelectedWord(null);
+              }
+            }}
+            open={Boolean(selectedWord)}
+            word={selectedWord}
+          />
         </div>
       </AppShell>
     </AuthGuard>

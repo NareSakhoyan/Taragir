@@ -2,13 +2,13 @@
 
 import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/lib/i18n/use-i18n";
-import type { DocumentStatus, IngestionJobStatus } from "@/lib/types/api";
+import type { DocumentStatus, IngestionJobStatus, ReferenceMatchingRunStatus } from "@/lib/types/api";
 
 type DocumentStatusBadgeProps = {
-  status: DocumentStatus | IngestionJobStatus;
+  status: DocumentStatus | IngestionJobStatus | ReferenceMatchingRunStatus;
 };
 
-const statusClasses: Record<DocumentStatus | IngestionJobStatus, string> = {
+const statusClasses: Record<DocumentStatus | IngestionJobStatus | ReferenceMatchingRunStatus, string> = {
   uploaded: "bg-secondary text-secondary-foreground",
   queued: "bg-chart-3/15 text-chart-3",
   processing: "bg-chart-4/15 text-chart-4",

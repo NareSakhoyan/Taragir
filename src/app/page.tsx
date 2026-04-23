@@ -16,5 +16,5 @@ export default async function HomePage() {
     Boolean(cookieStore.get(ACCESS_TOKEN_COOKIE)?.value) ||
     Boolean(cookieStore.get(REFRESH_TOKEN_COOKIE)?.value);
 
-  redirect(localizePath(locale, hasSession ? ROUTES.dashboard : ROUTES.login));
+  redirect(localizePath(locale, hasSession ? ROUTES.words : ROUTES.login));
 }

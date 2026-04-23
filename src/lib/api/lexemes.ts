@@ -7,9 +7,9 @@ import type {
   LexemeDetail,
   LexemeMergeGroupsRequest,
   LexemeSummary,
+  LexemesListParams,
   LexemeUpdateRequest,
   OffsetPagination,
-  SearchListParams,
 } from "@/lib/types/api";
 import { LEXEMES_PAGE_SIZE } from "@/lib/utils/constants";
 
@@ -20,10 +20,11 @@ export async function createLexeme(payload: LexemeCreateRequest) {
   });
 }
 
-export async function getLexemes(params: SearchListParams = {}) {
+export async function getLexemes(params: LexemesListParams = {}) {
   return apiFetch<OffsetPagination<LexemeSummary>>("/api/v1/lexemes", {
     searchParams: {
       search: params.search,
+      reference_status: params.reference_status,
       limit: params.limit ?? LEXEMES_PAGE_SIZE,
       offset: params.offset ?? 0,
     },

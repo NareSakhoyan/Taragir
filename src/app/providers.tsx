@@ -2,8 +2,8 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
-import { Toaster } from "sonner";
 
+import { AppToaster } from "@/components/app-toaster";
 import { AuthSessionProvider } from "@/components/auth/auth-provider";
 import { ApiError } from "@/lib/api/client";
 
@@ -35,17 +35,7 @@ export function Providers({ children }: ProvidersProps) {
     <AuthSessionProvider>
       <QueryClientProvider client={queryClient}>
         {children}
-        <Toaster
-          position="top-right"
-          richColors
-          toastOptions={{
-            classNames: {
-              toast: "border border-border bg-card text-card-foreground shadow-panel",
-              title: "font-semibold",
-              description: "text-sm text-muted-foreground",
-            },
-          }}
-        />
+        <AppToaster />
       </QueryClientProvider>
     </AuthSessionProvider>
   );

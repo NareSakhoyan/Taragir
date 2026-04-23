@@ -17,6 +17,7 @@ export async function getLexiconGroups(params: LexiconGroupsListParams = {}) {
       view: params.view,
       linked_only: params.linked_only,
       document_id: params.document_id,
+      reference_status: params.reference_status,
       limit: params.limit ?? LEXICON_GROUPS_PAGE_SIZE,
       offset: params.offset ?? 0,
     },

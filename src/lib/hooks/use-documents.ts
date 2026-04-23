@@ -2,7 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { listAllDocuments, listDocuments, uploadDocument } from "@/lib/api/documents";
+import { listAllDocuments, listDocuments, startDocumentUpload } from "@/lib/api/documents";
+import { jobKeys } from "@/lib/hooks/use-job";
 import type { ListParams } from "@/lib/types/api";
 
 export const documentKeys = {
@@ -26,16 +27,22 @@ export function useDocumentsSummary() {
   });
 }
 
-export function useUploadDocumentMutation() {
+export function useStartDocumentUpload() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: uploadDocument,
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: documentKeys.all }),
-        queryClient.invalidateQueries({ queryKey: ["jobs"] }),
-      ]);
+    mutationFn: startDocumentUpload,
+    onSuccess: (response) => {
+      queryClient.setQueryData(jobKeys.detail(response.job.id), response.job);
+
+      if (response.document) {
+        queryClient.setQueryData(["document", response.document.id], response.document);
+      }
+
+      void queryClient.invalidateQueries({ queryKey: documentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: jobKeys.all });
     },
   });
 }
+
+export const useUploadDocumentMutation = useStartDocumentUpload;

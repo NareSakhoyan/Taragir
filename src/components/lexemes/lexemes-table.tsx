@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
+import { ReferenceMatchBadge } from "@/components/lexicon/reference-match-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -83,6 +84,7 @@ export function LexemesTable({ lexemes, sortKey, sortDirection, onSort }: Lexeme
               <SortableHead activeSortKey={sortKey} direction={sortDirection} label={messages.lexemes.table.status} onSort={onSort} sortKey="status" />
               <SortableHead activeSortKey={sortKey} direction={sortDirection} label={messages.lexemes.table.formCount} onSort={onSort} sortKey="form_count" />
               <SortableHead activeSortKey={sortKey} direction={sortDirection} label={messages.lexemes.table.occurrenceCount} onSort={onSort} sortKey="occurrence_count" />
+              <TableHead>{messages.lexemes.table.reference}</TableHead>
               <SortableHead activeSortKey={sortKey} direction={sortDirection} label={messages.lexemes.table.createdAt} onSort={onSort} sortKey="created_at" />
               <TableHead className="text-right">{messages.lexemes.table.action}</TableHead>
             </TableRow>
@@ -101,6 +103,15 @@ export function LexemesTable({ lexemes, sortKey, sortDirection, onSort }: Lexeme
                 </TableCell>
                 <TableCell>{formatNumber(lexeme.form_count, locale)}</TableCell>
                 <TableCell>{formatNumber(lexeme.occurrence_count, locale)}</TableCell>
+                <TableCell className="min-w-[14rem]">
+                  <ReferenceMatchBadge
+                    bestMatch={lexeme.best_reference_match}
+                    compact
+                    hasMatch={lexeme.has_reference_match}
+                    matchCount={lexeme.reference_match_count}
+                    showUnmatched
+                  />
+                </TableCell>
                 <TableCell>{formatDate(lexeme.created_at, locale)}</TableCell>
                 <TableCell className="text-right">
                   <Link
@@ -136,6 +147,15 @@ export function LexemesTable({ lexemes, sortKey, sortDirection, onSort }: Lexeme
               <span>{formatNumber(lexeme.form_count, locale)} {messages.lexemes.counts.forms}</span>
               <span>{formatNumber(lexeme.occurrence_count, locale)} {messages.lexemes.counts.occurrences}</span>
               <span>{formatDate(lexeme.created_at, locale)}</span>
+            </div>
+            <div className="mt-4">
+              <ReferenceMatchBadge
+                bestMatch={lexeme.best_reference_match}
+                compact
+                hasMatch={lexeme.has_reference_match}
+                matchCount={lexeme.reference_match_count}
+                showUnmatched
+              />
             </div>
             <div className="mt-4 flex justify-end">
               <Link href={href(`${ROUTES.lexemes}/${lexeme.id}`)} onClick={(event) => event.stopPropagation()}>

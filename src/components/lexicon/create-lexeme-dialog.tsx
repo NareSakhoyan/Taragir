@@ -3,7 +3,6 @@
 import { z } from "zod";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useCreateLexeme } from "@/lib/hooks/use-create-lexeme";
 import { useI18n } from "@/lib/i18n/use-i18n";
+import { toast } from "@/lib/notifications";
 import { DEFAULT_LEXEME_STATUS, ROUTES } from "@/lib/utils/constants";
 
 const createLexemeSchema = z.object({

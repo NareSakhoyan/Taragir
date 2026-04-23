@@ -2,9 +2,10 @@
 
 import { z } from "zod";
 import { useState } from "react";
-import { toast } from "sonner";
 
+import { ReferenceMatchBadge } from "@/components/lexicon/reference-match-badge";
 import { LexemeFormsList } from "@/components/lexemes/lexeme-forms-list";
+import { LexemeReferenceMatchesCard } from "@/components/lexemes/lexeme-reference-matches-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useUpdateLexeme } from "@/lib/hooks/use-update-lexeme";
 import { useI18n } from "@/lib/i18n/use-i18n";
+import { toast } from "@/lib/notifications";
 import type { LexemeDetail } from "@/lib/types/api";
 import { formatDate, formatNumber } from "@/lib/utils/format";
 
@@ -114,7 +116,7 @@ export function LexemeDetailCard({ lexeme }: LexemeDetailCardProps) {
           </div>
         </div>
 
-        <div className="grid gap-4 border-b border-border/70 py-6 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 border-b border-border/70 py-6 md:grid-cols-2 xl:grid-cols-5">
           <div>
             <p className="text-sm text-muted-foreground">{messages.lexemeDetail.status}</p>
             {isEditing ? (
@@ -139,6 +141,17 @@ export function LexemeDetailCard({ lexeme }: LexemeDetailCardProps) {
           <div>
             <p className="text-sm text-muted-foreground">{messages.lexemeDetail.updated}</p>
             <p className="mt-2 font-semibold">{formatDate(lexeme.updated_at, locale)}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">{messages.lexemes.table.reference}</p>
+            <div className="mt-2">
+              <ReferenceMatchBadge
+                bestMatch={lexeme.best_reference_match}
+                hasMatch={lexeme.has_reference_match}
+                matchCount={lexeme.reference_match_count}
+                showUnmatched
+              />
+            </div>
           </div>
         </div>
 
@@ -201,6 +214,15 @@ export function LexemeDetailCard({ lexeme }: LexemeDetailCardProps) {
           </div>
         </div>
       </section>
+
+      <LexemeReferenceMatchesCard
+        bestReferenceMatch={lexeme.best_reference_match}
+        canonicalForm={lexeme.canonical_form}
+        canonicalNormalizedForm={lexeme.canonical_normalized_form}
+        hasReferenceMatch={lexeme.has_reference_match}
+        lexemeId={lexeme.id}
+        referenceMatchCount={lexeme.reference_match_count}
+      />
 
       <LexemeFormsList normalizedForms={lexeme.normalized_forms} />
     </div>
