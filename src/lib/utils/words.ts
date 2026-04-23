@@ -13,6 +13,7 @@ export const WORD_SEARCH_CATEGORY_ORDER: WordSearchCategory[] = [
   "lexicon",
   "documents",
   "reference_sources",
+  "trusted_external",
 ];
 
 export const WORD_CANDIDATE_FILTERS: WordCandidateFilter[] = [
@@ -33,8 +34,19 @@ export function getWordCategoryLabel(category: WordSearchCategory, messages: Mes
       return messages.words.categories.documents;
     case "reference_sources":
       return messages.words.categories.referenceSources;
+    case "trusted_external":
+      return messages.words.categories.trustedExternal;
     default:
       return humanizeSnakeCase(category);
+  }
+}
+
+export function getWordGroupEmptyLabel(category: WordSearchCategory, messages: Messages) {
+  switch (category) {
+    case "trusted_external":
+      return messages.words.emptyStates.noTrustedExternalResults;
+    default:
+      return messages.words.emptyStates.noResults;
   }
 }
 
@@ -65,6 +77,9 @@ export function getWordSourceTypeLabel(sourceType: string, messages: Messages) {
       return messages.words.sourceTypes.document;
     case "reference_source":
       return messages.words.sourceTypes.referenceSource;
+    case "trusted_external":
+    case "external_source":
+      return messages.words.sourceTypes.trustedExternal;
     case "lexicon":
       return messages.words.sourceTypes.lexicon;
     default:
@@ -85,6 +100,9 @@ export function getWordSearchResultHref(item: WordEvidenceSummary) {
       );
     case "reference_source":
       return item.source_id ? `${ROUTES.references}/${item.source_id}` : null;
+    case "trusted_external":
+    case "external_source":
+      return item.reference_link ?? null;
     case "lexicon":
       return item.normalized_form
         ? `${ROUTES.lexicon}?search=${encodeURIComponent(item.normalized_form)}`
@@ -98,8 +116,42 @@ export function getWordLexemeHref(item: WordEvidenceSummary) {
   return item.linked_lexeme?.id ? `${ROUTES.lexemes}/${item.linked_lexeme.id}` : null;
 }
 
+export function isTrustedExternalWord(item: Pick<WordEvidenceSummary, "category" | "source_type">) {
+  return (
+    item.category === "trusted_external" ||
+    item.source_type === "trusted_external" ||
+    item.source_type === "external_source"
+  );
+}
+
 export function isWordResultExternalLink(item: WordEvidenceSummary) {
   return Boolean(item.reference_link && /^https?:\/\//.test(item.reference_link));
+}
+
+export function getWordMatchTypeLabel(matchType: string, messages: Messages) {
+  switch (matchType) {
+    case "exact":
+      return messages.reference.types.exact;
+    case "normalized":
+      return messages.reference.types.normalized;
+    case "fuzzy":
+      return messages.reference.types.fuzzy;
+    default:
+      return humanizeSnakeCase(matchType);
+  }
+}
+
+export function getWordMatchTypeClassName(matchType: string | null | undefined) {
+  switch (matchType) {
+    case "exact":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "normalized":
+      return "border-sky-200 bg-sky-50 text-sky-700";
+    case "fuzzy":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    default:
+      return "border-border/80 bg-muted/20 text-muted-foreground";
+  }
 }
 
 export function isWordSearchMode(value: string | null | undefined): value is WordSearchMode {

@@ -16,12 +16,19 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWordCheck, useWordEvidence } from "@/lib/hooks/use-words";
 import { useI18n } from "@/lib/i18n/use-i18n";
-import type { WordEvidenceSummary } from "@/lib/types/api";
+import type {
+  WordEvidenceSummary,
+  WordInternalEvidenceItem,
+  WordTrustedExternalEvidenceItem,
+} from "@/lib/types/api";
 import { formatReferenceImportMethod, isOcrReferenceImportMethod } from "@/lib/utils/format";
 import {
   getWordLexemeHref,
+  getWordMatchTypeClassName,
+  getWordMatchTypeLabel,
   getWordSearchResultHref,
   getWordSourceTypeLabel,
+  isTrustedExternalWord,
   isWordResultExternalLink,
 } from "@/lib/utils/words";
 
@@ -109,8 +116,58 @@ function DetailSection({
   );
 }
 
+function buildFallbackInternalEvidenceItems(word: WordEvidenceSummary | null | undefined) {
+  if (
+    !word ||
+    isTrustedExternalWord(word) ||
+    (!word.source_title && word.page_number == null && !word.context_snippet && !word.reference_link)
+  ) {
+    return [] as WordInternalEvidenceItem[];
+  }
+
+  return [
+    {
+      id: `internal-fallback:${word.id}`,
+      page_number: word.page_number,
+      context_snippet: word.context_snippet,
+      reference_link: word.reference_link,
+      source_title: word.source_title,
+      extraction_method: word.extraction_method,
+      source_warning: word.source_warning ?? null,
+    },
+  ] satisfies WordInternalEvidenceItem[];
+}
+
+function buildFallbackTrustedExternalEvidenceItems(word: WordEvidenceSummary | null | undefined) {
+  if (
+    !word ||
+    (!isTrustedExternalWord(word) &&
+      !word.provider_display_name &&
+      !word.match_type &&
+      !word.matched_form &&
+      !word.reference_link)
+  ) {
+    return [] as WordTrustedExternalEvidenceItem[];
+  }
+
+  return [
+    {
+      id: `trusted-external-fallback:${word.id}`,
+      provider_display_name: word.provider_display_name,
+      source_title: word.source_title,
+      snippet: word.context_snippet,
+      matched_form: word.matched_form ?? word.display_word,
+      reference_link: word.reference_link,
+      match_type: word.match_type,
+      match_score: word.match_score,
+      source_warning: word.source_warning ?? null,
+      warning_message: null,
+    },
+  ] satisfies WordTrustedExternalEvidenceItem[];
+}
+
 export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerProps) {
-  const { href, messages } = useI18n();
+  const { href, locale, messages } = useI18n();
   const detailQuery = useWordEvidence(
     {
       id: word ? String(word.id) : null,
@@ -129,23 +186,19 @@ export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerP
   const sourceHref = effectiveWord ? getWordSearchResultHref(effectiveWord) : null;
   const lexemeHref = effectiveWord ? getWordLexemeHref(effectiveWord) : null;
   const externalSourceLink = effectiveWord ? isWordResultExternalLink(effectiveWord) : false;
+  const isTrustedExternal = effectiveWord ? isTrustedExternalWord(effectiveWord) : false;
   const snippetHighlightTerms = effectiveWord
     ? [effectiveWord.display_word, effectiveWord.normalized_form ?? ""]
     : [];
-  const evidenceItems = detailQuery.data?.evidence_items?.length
-    ? detailQuery.data.evidence_items
-    : effectiveWord
-      ? [
-          {
-            page_number: effectiveWord.page_number,
-            context_snippet: effectiveWord.context_snippet,
-            reference_link: effectiveWord.reference_link,
-            source_title: effectiveWord.source_title,
-            extraction_method: effectiveWord.extraction_method,
-            source_warning: effectiveWord.source_warning ?? null,
-          },
-        ]
-      : [];
+  const internalEvidenceItems =
+    detailQuery.data?.internal_evidence_items?.length
+      ? detailQuery.data.internal_evidence_items
+      : detailQuery.data?.evidence_items?.length
+        ? detailQuery.data.evidence_items
+        : buildFallbackInternalEvidenceItems(effectiveWord);
+  const trustedExternalEvidenceItems = detailQuery.data?.trusted_external_evidence_items?.length
+    ? detailQuery.data.trusted_external_evidence_items
+    : buildFallbackTrustedExternalEvidenceItems(effectiveWord);
 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
@@ -170,10 +223,21 @@ export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerP
             </div>
           ) : effectiveWord ? (
             <div className="space-y-4 px-6 py-5">
+              {detailQuery.error ? (
+                <div className="rounded-md border border-amber-300/70 bg-amber-50/70 px-4 py-3 text-sm text-amber-900">
+                  {detailQuery.error.message}
+                </div>
+              ) : null}
+
               <DetailSection title={messages.words.detail.summaryTitle}>
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="outline">{getWordSourceTypeLabel(effectiveWord.source_type, messages)}</Badge>
-                  {effectiveWord.page_number != null ? (
+                  {effectiveWord.provider_display_name ? (
+                    <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+                      {effectiveWord.provider_display_name}
+                    </Badge>
+                  ) : null}
+                  {effectiveWord.page_number != null && !isTrustedExternal ? (
                     <Badge variant="outline">
                       {messages.words.labels.page}: {effectiveWord.page_number}
                     </Badge>
@@ -186,6 +250,11 @@ export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerP
                   {effectiveWord.match_status === "matched" ? (
                     <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700" variant="outline">
                       {messages.words.badges.referenceMatched}
+                    </Badge>
+                  ) : null}
+                  {effectiveWord.match_type ? (
+                    <Badge className={getWordMatchTypeClassName(effectiveWord.match_type)} variant="outline">
+                      {getWordMatchTypeLabel(effectiveWord.match_type, messages)}
                     </Badge>
                   ) : null}
                 </div>
@@ -211,42 +280,145 @@ export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerP
                     {": "}
                     {effectiveWord.linked_lexeme?.canonical_form ?? messages.words.labels.unlinked}
                   </p>
+                  {effectiveWord.provider_display_name ? (
+                    <p className="[overflow-wrap:anywhere]">
+                      <span className="font-medium text-foreground">{messages.words.labels.provider}</span>
+                      {": "}
+                      {effectiveWord.provider_display_name}
+                    </p>
+                  ) : null}
+                  {effectiveWord.matched_form ? (
+                    <p className="[overflow-wrap:anywhere]">
+                      <span className="font-medium text-foreground">{messages.words.labels.matchedForm}</span>
+                      {": "}
+                      {effectiveWord.matched_form}
+                    </p>
+                  ) : null}
+                  {effectiveWord.match_score != null ? (
+                    <p>
+                      <span className="font-medium text-foreground">{messages.words.labels.matchScore}</span>
+                      {": "}
+                      {effectiveWord.match_score.toLocaleString(locale)}
+                    </p>
+                  ) : null}
                 </div>
               </DetailSection>
 
               <DetailSection
-                description={messages.words.detail.contextDescription}
-                title={messages.words.detail.contextTitle}
+                description={messages.words.detail.internalEvidenceDescription}
+                title={messages.words.detail.internalEvidenceTitle}
               >
-                <div className="space-y-3">
-                  {evidenceItems.map((item, index) => (
-                    <div className="space-y-2 rounded-md border border-border/70 bg-background/70 p-3" key={`${item.page_number}-${index}`}>
-                      {item.source_title ? (
-                        <p className="text-sm font-medium [overflow-wrap:anywhere]">{item.source_title}</p>
-                      ) : null}
-                      {item.page_number != null ? (
-                        <p className="text-sm text-muted-foreground">
-                          {messages.words.labels.page}: {item.page_number}
-                        </p>
-                      ) : null}
-                      <p className="text-sm leading-6 text-foreground/90">
-                        {item.context_snippet
-                          ? highlightSnippet(item.context_snippet, snippetHighlightTerms)
-                          : messages.words.emptyStates.noContext}
-                      </p>
-                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        {item.extraction_method ? (
-                          <Badge variant="outline">{formatReferenceImportMethod(item.extraction_method)}</Badge>
+                {internalEvidenceItems.length ? (
+                  <div className="space-y-3">
+                    {internalEvidenceItems.map((item, index) => (
+                      <div
+                        className="space-y-2 rounded-md border border-border/70 bg-background/70 p-3"
+                        key={item.id ?? `${item.page_number}-${index}`}
+                      >
+                        {item.source_title ? (
+                          <p className="text-sm font-medium [overflow-wrap:anywhere]">{item.source_title}</p>
                         ) : null}
-                        {item.source_warning ? (
-                          <Badge className="border-amber-200 bg-amber-50 text-amber-700" variant="outline">
-                            {item.source_warning}
+                        {item.page_number != null ? (
+                          <p className="text-sm text-muted-foreground">
+                            {messages.words.labels.page}: {item.page_number}
+                          </p>
+                        ) : null}
+                        <p className="text-sm leading-6 text-foreground/90">
+                          {item.context_snippet
+                            ? highlightSnippet(item.context_snippet, snippetHighlightTerms)
+                            : messages.words.emptyStates.noContext}
+                        </p>
+                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          {item.extraction_method ? (
+                            <Badge variant="outline">{formatReferenceImportMethod(item.extraction_method)}</Badge>
+                          ) : null}
+                          {item.source_warning ? (
+                            <Badge className="border-amber-200 bg-amber-50 text-amber-700" variant="outline">
+                              {item.source_warning}
+                            </Badge>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{messages.words.detail.noInternalEvidence}</p>
+                )}
+              </DetailSection>
+
+              <DetailSection
+                description={messages.words.detail.trustedExternalDescription}
+                title={messages.words.detail.trustedExternalTitle}
+              >
+                {trustedExternalEvidenceItems.length ? (
+                  <div className="space-y-3">
+                    {trustedExternalEvidenceItems.map((item, index) => (
+                      <div
+                        className="space-y-3 rounded-md border border-orange-200/80 bg-orange-50/50 p-3"
+                        key={item.id ?? `${item.provider_display_name ?? "provider"}-${index}`}
+                      >
+                        <div className="flex flex-wrap gap-2">
+                          <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+                            {messages.words.badges.trustedExternal}
                           </Badge>
+                          <Badge className="border-orange-200 bg-white/80 text-orange-800" variant="outline">
+                            {item.provider_display_name || messages.words.badges.externalSource}
+                          </Badge>
+                          {item.match_type ? (
+                            <Badge className={getWordMatchTypeClassName(item.match_type)} variant="outline">
+                              {getWordMatchTypeLabel(item.match_type, messages)}
+                            </Badge>
+                          ) : null}
+                          {item.source_warning || item.warning_message ? (
+                            <Badge className="border-amber-200 bg-amber-50 text-amber-700" variant="outline">
+                              {item.warning_message ?? item.source_warning}
+                            </Badge>
+                          ) : null}
+                        </div>
+
+                        {item.source_title ? (
+                          <p className="text-sm font-medium [overflow-wrap:anywhere]">{item.source_title}</p>
+                        ) : null}
+
+                        <div className="grid gap-2 text-sm text-muted-foreground">
+                          <p className="[overflow-wrap:anywhere]">
+                            <span className="font-medium text-foreground">{messages.words.labels.provider}</span>
+                            {": "}
+                            {item.provider_display_name || "—"}
+                          </p>
+                          <p className="[overflow-wrap:anywhere]">
+                            <span className="font-medium text-foreground">{messages.words.labels.matchedForm}</span>
+                            {": "}
+                            {item.matched_form || effectiveWord.display_word}
+                          </p>
+                          {item.match_score != null ? (
+                            <p>
+                              <span className="font-medium text-foreground">{messages.words.labels.matchScore}</span>
+                              {": "}
+                              {item.match_score.toLocaleString(locale)}
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <p className="text-sm leading-6 text-foreground/90">
+                          {item.snippet
+                            ? highlightSnippet(item.snippet, snippetHighlightTerms)
+                            : messages.words.emptyStates.noContext}
+                        </p>
+
+                        {item.reference_link ? (
+                          <Button asChild size="sm" variant="outline">
+                            <a href={item.reference_link} rel="noopener noreferrer" target="_blank">
+                              {messages.words.actions.openSource}
+                            </a>
+                          </Button>
                         ) : null}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{messages.words.detail.noTrustedExternalEvidence}</p>
+                )}
               </DetailSection>
 
               <DetailSection title={messages.words.detail.lexiconTitle}>
@@ -295,7 +467,7 @@ export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerP
                       <p>
                         <span className="font-medium text-foreground">{messages.words.labels.matchType}</span>
                         {": "}
-                        {effectiveWord.reference_match.match_type}
+                        {getWordMatchTypeLabel(effectiveWord.reference_match.match_type, messages)}
                       </p>
                     ) : null}
                     {effectiveWord.reference_match.source_import_method ? (
@@ -323,7 +495,7 @@ export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerP
           {sourceHref ? (
             externalSourceLink ? (
               <Button asChild variant="outline">
-                <a href={effectiveWord?.reference_link ?? sourceHref} rel="noreferrer" target="_blank">
+                <a href={effectiveWord?.reference_link ?? sourceHref} rel="noopener noreferrer" target="_blank">
                   {messages.words.actions.openSourceContext}
                 </a>
               </Button>

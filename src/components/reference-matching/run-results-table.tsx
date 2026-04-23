@@ -79,7 +79,7 @@ export function RunResultsTable({
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  if (isLoading || isFetching) {
+  if (isLoading) {
     return (
       <div className="space-y-3">
         <div className="h-16 rounded-md bg-muted/30" />

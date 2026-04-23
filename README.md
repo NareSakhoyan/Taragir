@@ -12,6 +12,26 @@ Authenticated frontend for uploading Armenian historical books, tracking ingesti
 - TanStack Query for API calls and caching
 - Zod for form validation
 
+## What MVP-4 Adds
+
+- Trusted external lookup on the main `Words` page at `/words`.
+- Global word search can now include four explicit result groups:
+  - `Lexicon`
+  - `Imported Books`
+  - `Reference Sources`
+  - `Trusted External`
+- Trusted external results stay visibly separate from internal results instead of being mixed into the same undifferentiated list.
+- External result cards now surface traceable metadata such as:
+  - provider label, for example `Nayiri`
+  - source title
+  - snippet when available
+  - reference link
+  - match type and score when the backend provides them
+- The reusable word detail drawer now keeps `Internal evidence` and `Trusted external sources` in separate sections.
+- The quick-check summary on `/words` now shows whether a term was found in trusted external sources, how many external matches were returned, and provider names when available.
+- Partial external failure is handled softly: internal results can still render while the trusted external group shows a temporary unavailability state.
+- MVP-4 still does **not** add broad internet search, generated meanings, or automatic lexical decisions.
+
 ## What MVP-3 Adds
 
 - `Reference Sources` at `/references` so reviewers can create personal reference sources and import simple wordlists or reference documents.
@@ -56,7 +76,7 @@ Authenticated frontend for uploading Armenian historical books, tracking ingesti
 - `Reference matches` are informative hints only. They do **not** create lexemes, hide groups, or decide lexical truth automatically.
 - `Words` and their source evidence are now the primary reviewer-facing inspection surface.
 - `Reference matching runs` remain useful infrastructure and metadata, but they are no longer the main user-facing entry point.
-- MVP-3 still does **not** add internet search, word meanings, automatic lemma generation, or automatic lexical decisions.
+- MVP-4 still does **not** add broad internet search, word meanings, automatic lemma generation, or automatic lexical decisions.
 
 ## Word-First Review
 
@@ -64,18 +84,21 @@ Authenticated frontend for uploading Armenian historical books, tracking ingesti
   - `Lexicon`
   - `Imported Books`
   - `Reference Sources`
+  - `Trusted External`
 - Every word result is meant to stay traceable:
   - source title stays visible
   - page number is shown when the backend provides it
   - context snippets stay attached to the visible result
+  - trusted external rows keep provider names and reference links visible
   - linked lexeme and best reference-match hints stay visible without opening raw IDs
 - Opening a word result launches a reusable detail drawer with:
   - source-aware summary metadata
-  - context and evidence snippets
+  - internal evidence snippets
+  - trusted external evidence that stays provider-labeled and separate
   - lexicon presence / linked lexeme information
   - best reference-match metadata
   - direct navigation back to the full source or linked lexeme
-- The lightweight `Check in lexicon` summary gives a fast yes/no answer for the current query before deeper review.
+- The lightweight quick-check summary gives a fast yes/no answer for the current query before deeper review and now includes trusted external presence when available.
 
 ## Source-First Review
 
@@ -96,6 +119,7 @@ Authenticated frontend for uploading Armenian historical books, tracking ingesti
 ## Reference Sources And Importing
 
 - Reference sources are user-managed, personal sources. They are not internet lookups and they are not treated as automatic truth.
+- Trusted external lookup on `/words` is limited to provider-labeled sources exposed by the backend. It is still not a broad general internet search surface.
 - Create a source at `/references`, then open its detail page and import either:
   - `.txt`: one entry per line
   - `.csv`: include a `surface_form` or `normalized_form` column

@@ -59,6 +59,8 @@ export default function ReferenceMatchingRunDetailPage() {
     runQuery.data?.status,
     runQuery.isSuccess,
   );
+  const isResultsTableTransitioning =
+    resultsQuery.isFetching && resultsQuery.isPlaceholderData;
   const run = runQuery.data;
   const routeSourceId = searchParams.get("source");
   const runSourceId =
@@ -231,8 +233,8 @@ export default function ReferenceMatchingRunDetailPage() {
                   emptyDescription={emptyState.description}
                   emptyTitle={emptyState.title}
                   errorMessage={resultsQuery.error?.message}
-                  isFetching={resultsQuery.isFetching}
-                  isLoading={resultsQuery.isLoading}
+                  isFetching={isResultsTableTransitioning}
+                  isLoading={resultsQuery.isLoading || isResultsTableTransitioning}
                   onPageChange={setCurrentPage}
                   onPageSizeChange={(nextPageSize) => {
                     setPageSize(nextPageSize);

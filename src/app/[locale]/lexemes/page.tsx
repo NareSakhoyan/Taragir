@@ -31,6 +31,7 @@ export default function LexemesPage() {
     limit: pageSize,
     offset,
   });
+  const isLexemesTableTransitioning = lexemesQuery.isFetching && lexemesQuery.isPlaceholderData;
 
   const total = lexemesQuery.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -135,7 +136,7 @@ export default function LexemesPage() {
           </section>
 
           <section className="rounded-md border border-border/80 bg-card/80 p-5 shadow-sm">
-            {lexemesQuery.isLoading ? (
+            {lexemesQuery.isLoading || isLexemesTableTransitioning ? (
               <TableLoadingState />
             ) : lexemesQuery.error ? (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive shadow-sm">
@@ -160,6 +161,7 @@ export default function LexemesPage() {
               pageSize={pageSize}
               pageSizeOptions={[...TABLE_PAGE_SIZE_OPTIONS]}
               totalPages={totalPages}
+              isBusy={isLexemesTableTransitioning}
             />
           </section>
         </div>

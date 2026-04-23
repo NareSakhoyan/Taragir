@@ -21,8 +21,13 @@ export type ReferenceMatchingResultStatusFilter = "matched" | "unmatched" | "all
 export type ReferenceMatchingResultTargetType = "lexicon_group" | "lexeme" | "all";
 export type ReferenceMatchingRunResultsScopeFilter = "lexicon_only" | "books_only" | "any";
 export type WordSearchMode = "exact" | "normalized" | "fuzzy";
-export type WordSearchCategory = "lexicon" | "documents" | "reference_sources";
-export type WordSourceType = "lexicon" | "document" | "reference_source" | string;
+export type WordSearchCategory = "lexicon" | "documents" | "reference_sources" | "trusted_external";
+export type WordSourceType =
+  | "lexicon"
+  | "document"
+  | "reference_source"
+  | "trusted_external"
+  | string;
 export type WordCandidateFilter =
   | "all"
   | "unlinked"
@@ -147,6 +152,7 @@ export type WordSearchParams = ListParams & {
   include_lexicon?: boolean;
   include_documents?: boolean;
   include_reference_sources?: boolean;
+  include_trusted_external?: boolean;
 };
 
 export type WordCandidatesParams = SearchListParams & {
@@ -473,6 +479,10 @@ export type WordEvidenceSummary = {
   page_number: number | null;
   context_snippet: string | null;
   reference_link: string | null;
+  provider_display_name: string | null;
+  matched_form: string | null;
+  match_type: ReferenceMatchType | null;
+  match_score: number | null;
   occurrence_count: number | null;
   page_count: number | null;
   sample_tokens: string[];
@@ -490,21 +500,40 @@ export type WordEvidenceSummary = {
   reference_match: WordReferenceMatchSummary | null;
 };
 
+export type WordInternalEvidenceItem = {
+  id?: UUID | string | null;
+  page_number: number | null;
+  context_snippet: string | null;
+  reference_link: string | null;
+  source_title: string | null;
+  extraction_method?: string | null;
+  source_warning?: string | null;
+};
+
+export type WordTrustedExternalEvidenceItem = {
+  id?: UUID | string | null;
+  provider_display_name: string | null;
+  source_title: string | null;
+  snippet: string | null;
+  matched_form: string | null;
+  reference_link: string | null;
+  match_type: ReferenceMatchType | null;
+  match_score: number | null;
+  source_warning?: string | null;
+  warning_message?: string | null;
+};
+
 export type WordEvidenceDetail = WordEvidenceSummary & {
-  evidence_items?: Array<{
-    page_number: number | null;
-    context_snippet: string | null;
-    reference_link: string | null;
-    source_title: string | null;
-    extraction_method?: string | null;
-    source_warning?: string | null;
-  }>;
+  evidence_items?: WordInternalEvidenceItem[];
+  internal_evidence_items?: WordInternalEvidenceItem[];
+  trusted_external_evidence_items?: WordTrustedExternalEvidenceItem[];
 };
 
 export type WordSearchGroup = {
   category: WordSearchCategory;
   items: WordEvidenceSummary[];
   total: number;
+  error_message?: string | null;
 };
 
 export type WordSearchResponse = {
@@ -520,8 +549,12 @@ export type WordCheckResponse = {
   matching_lexemes: WordLexemeSummary[];
   found_in_documents: boolean;
   found_in_reference_sources: boolean;
+  found_in_trusted_external: boolean;
   document_hit_count: number | null;
   reference_source_hit_count: number | null;
+  trusted_external_hit_count: number | null;
+  trusted_external_providers: string[];
+  trusted_external_error_message?: string | null;
 };
 
 export type StageEvent = {

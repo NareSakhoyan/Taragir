@@ -6,7 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import type { WordEvidenceSummary } from "@/lib/types/api";
-import { getWordLexemeHref, getWordSearchResultHref } from "@/lib/utils/words";
+import {
+  getWordLexemeHref,
+  getWordMatchTypeClassName,
+  getWordMatchTypeLabel,
+  getWordSearchResultHref,
+  isTrustedExternalWord,
+  isWordResultExternalLink,
+} from "@/lib/utils/words";
 
 type WordResultCardProps = {
   item: WordEvidenceSummary;
@@ -14,13 +21,21 @@ type WordResultCardProps = {
 };
 
 export function WordResultCard({ item, onViewDetails }: WordResultCardProps) {
-  const { href, messages } = useI18n();
+  const { href, locale, messages } = useI18n();
   const sourceHref = getWordSearchResultHref(item);
   const lexemeHref = getWordLexemeHref(item);
   const sampleContexts = Array.isArray(item.sample_contexts) ? item.sample_contexts : [];
+  const isTrustedExternal = isTrustedExternalWord(item);
+  const primaryContext = item.context_snippet || sampleContexts[0] || messages.words.emptyStates.noContext;
 
   return (
-    <article className="rounded-md border border-border/80 bg-card/80 p-4 shadow-sm">
+    <article
+      className={
+        isTrustedExternal
+          ? "rounded-md border border-orange-200/80 bg-orange-50/40 p-4 shadow-sm"
+          : "rounded-md border border-border/80 bg-card/80 p-4 shadow-sm"
+      }
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="font-semibold [overflow-wrap:anywhere]">{item.display_word}</p>
@@ -31,28 +46,46 @@ export function WordResultCard({ item, onViewDetails }: WordResultCardProps) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {item.is_suspicious ? (
-            <Badge className="border-amber-200 bg-amber-50 text-amber-700" variant="outline">
-              {messages.words.badges.suspicious}
-            </Badge>
-          ) : null}
-          {item.is_linked ? (
-            <Badge className="border-sky-200 bg-sky-50 text-sky-700" variant="outline">
-              {messages.words.badges.linked}
-            </Badge>
-          ) : null}
-          <Badge
-            className={
-              item.match_status === "matched"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                : "border-border/80 bg-muted/20 text-muted-foreground"
-            }
-            variant="outline"
-          >
-            {item.match_status === "matched"
-              ? messages.words.badges.referenceMatched
-              : messages.words.badges.referenceUnmatched}
-          </Badge>
+          {isTrustedExternal ? (
+            <>
+              <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+                {messages.words.badges.trustedExternal}
+              </Badge>
+              <Badge className="border-orange-200 bg-white/80 text-orange-800" variant="outline">
+                {item.provider_display_name || messages.words.badges.externalSource}
+              </Badge>
+              {item.match_type ? (
+                <Badge className={getWordMatchTypeClassName(item.match_type)} variant="outline">
+                  {getWordMatchTypeLabel(item.match_type, messages)}
+                </Badge>
+              ) : null}
+            </>
+          ) : (
+            <>
+              {item.is_suspicious ? (
+                <Badge className="border-amber-200 bg-amber-50 text-amber-700" variant="outline">
+                  {messages.words.badges.suspicious}
+                </Badge>
+              ) : null}
+              {item.is_linked ? (
+                <Badge className="border-sky-200 bg-sky-50 text-sky-700" variant="outline">
+                  {messages.words.badges.linked}
+                </Badge>
+              ) : null}
+              <Badge
+                className={
+                  item.match_status === "matched"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-border/80 bg-muted/20 text-muted-foreground"
+                }
+                variant="outline"
+              >
+                {item.match_status === "matched"
+                  ? messages.words.badges.referenceMatched
+                  : messages.words.badges.referenceUnmatched}
+              </Badge>
+            </>
+          )}
         </div>
       </div>
 
@@ -63,14 +96,26 @@ export function WordResultCard({ item, onViewDetails }: WordResultCardProps) {
             {": "}
             {item.source_title || "—"}
           </p>
-          {item.page_number != null ? (
+          {isTrustedExternal ? (
+            <p className="[overflow-wrap:anywhere]">
+              <span className="font-medium text-foreground">{messages.words.labels.provider}</span>
+              {": "}
+              {item.provider_display_name || "—"}
+            </p>
+          ) : item.page_number != null ? (
             <p>
               <span className="font-medium text-foreground">{messages.words.labels.page}</span>
               {": "}
               {item.page_number}
             </p>
           ) : null}
-          {item.reference_match?.has_match ? (
+          {isTrustedExternal ? (
+            <p className="[overflow-wrap:anywhere]">
+              <span className="font-medium text-foreground">{messages.words.labels.matchedForm}</span>
+              {": "}
+              {item.matched_form ?? item.display_word}
+            </p>
+          ) : item.reference_match?.has_match ? (
             <p className="[overflow-wrap:anywhere]">
               <span className="font-medium text-foreground">{messages.words.labels.referenceMatch}</span>
               {": "}
@@ -82,14 +127,25 @@ export function WordResultCard({ item, onViewDetails }: WordResultCardProps) {
         </div>
 
         <div className="space-y-2">
-          {item.context_snippet ? (
-            <p className="line-clamp-3">{item.context_snippet}</p>
-          ) : sampleContexts.length ? (
-            <p className="line-clamp-3">{sampleContexts[0]}</p>
-          ) : (
-            <p>{messages.words.emptyStates.noContext}</p>
-          )}
-          {item.linked_lexeme ? (
+          <p className="line-clamp-3">{primaryContext}</p>
+          {isTrustedExternal ? (
+            <>
+              {item.match_type ? (
+                <p className="[overflow-wrap:anywhere]">
+                  <span className="font-medium text-foreground">{messages.words.labels.matchType}</span>
+                  {": "}
+                  {getWordMatchTypeLabel(item.match_type, messages)}
+                </p>
+              ) : null}
+              {item.match_score != null ? (
+                <p>
+                  <span className="font-medium text-foreground">{messages.words.labels.matchScore}</span>
+                  {": "}
+                  {item.match_score.toLocaleString(locale)}
+                </p>
+              ) : null}
+            </>
+          ) : item.linked_lexeme ? (
             <p className="[overflow-wrap:anywhere]">
               <span className="font-medium text-foreground">{messages.words.labels.linkedLexeme}</span>
               {": "}
@@ -109,9 +165,17 @@ export function WordResultCard({ item, onViewDetails }: WordResultCardProps) {
           </Button>
         ) : null}
         {sourceHref ? (
-          <Button asChild size="sm" variant="outline">
-            <Link href={href(sourceHref)}>{messages.words.actions.openSource}</Link>
-          </Button>
+          isWordResultExternalLink(item) ? (
+            <Button asChild size="sm" variant="outline">
+              <a href={sourceHref} rel="noopener noreferrer" target="_blank">
+                {messages.words.actions.openSource}
+              </a>
+            </Button>
+          ) : (
+            <Button asChild size="sm" variant="outline">
+              <Link href={href(sourceHref)}>{messages.words.actions.openSource}</Link>
+            </Button>
+          )
         ) : null}
       </div>
     </article>

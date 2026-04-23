@@ -57,6 +57,7 @@ export default function LexiconPage() {
     offset,
   });
   const referenceMatchesQuery = useLexiconGroupReferenceMatches(referenceMatchForm, Boolean(referenceMatchForm));
+  const isLexiconTableTransitioning = lexiconQuery.isFetching && lexiconQuery.isPlaceholderData;
 
   const total = lexiconQuery.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -328,7 +329,7 @@ export default function LexiconPage() {
             </div>
 
             <div className="mt-5">
-              {lexiconQuery.isLoading ? (
+              {lexiconQuery.isLoading || isLexiconTableTransitioning ? (
                 <TableLoadingState />
               ) : lexiconQuery.error ? (
                 <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive shadow-sm">
@@ -365,6 +366,7 @@ export default function LexiconPage() {
               pageSize={pageSize}
               pageSizeOptions={[...TABLE_PAGE_SIZE_OPTIONS]}
               totalPages={totalPages}
+              isBusy={isLexiconTableTransitioning}
             />
           </section>
         </div>

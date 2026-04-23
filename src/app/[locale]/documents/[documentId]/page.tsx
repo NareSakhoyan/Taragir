@@ -72,6 +72,9 @@ export default function DocumentDetailPage() {
     },
     documentQuery.isSuccess,
   );
+  const isOccurrencesTransitioning = occurrencesQuery.isFetching && occurrencesQuery.isPlaceholderData;
+  const isWordCandidatesTransitioning =
+    wordCandidatesQuery.isFetching && wordCandidatesQuery.isPlaceholderData;
 
   const pages = pagesQuery.data ?? [];
   const requestedPageNumber = parseDocumentEvidencePage(searchParams.get("page"));
@@ -248,8 +251,8 @@ export default function DocumentDetailPage() {
                 emptyDescription={messages.documentDetail.wordsEmptyDescription}
                 emptyTitle={messages.documentDetail.wordsEmptyTitle}
                 errorMessage={wordCandidatesQuery.error?.message}
-                isFetching={wordCandidatesQuery.isFetching}
-                isLoading={wordCandidatesQuery.isLoading}
+                isFetching={isWordCandidatesTransitioning}
+                isLoading={wordCandidatesQuery.isLoading || isWordCandidatesTransitioning}
                 onPageChange={setWordPage}
                 onPageSizeChange={(nextPageSize) => {
                   setWordPageSize(nextPageSize);
@@ -266,8 +269,8 @@ export default function DocumentDetailPage() {
             data={occurrencesQuery.data}
             errorMessage={occurrencesQuery.error?.message}
             filters={occurrenceFilters}
-            isFetching={occurrencesQuery.isFetching}
-            isLoading={occurrencesQuery.isLoading}
+            isFetching={isOccurrencesTransitioning}
+            isLoading={occurrencesQuery.isLoading || isOccurrencesTransitioning}
             onApplyFilters={(filters) => {
               setOccurrenceFilters(filters);
               setOccurrenceOffset(0);

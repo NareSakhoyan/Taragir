@@ -16,7 +16,13 @@ export const wordKeys = {
   search: () => [...wordKeys.all, "search"] as const,
   searchResult: (params: WordSearchParams) => [...wordKeys.search(), params] as const,
   check: (query: string) => [...wordKeys.all, "check", query] as const,
-  evidence: (id: string) => [...wordKeys.all, "evidence", id] as const,
+  evidence: (input: {
+    id?: string | null;
+    sourceType?: string | null;
+    sourceId?: string | null;
+    normalizedForm?: string | null;
+    q?: string | null;
+  }) => [...wordKeys.all, "evidence", input] as const,
   documentCandidates: (documentId: string, params: WordCandidatesParams) =>
     [...wordKeys.all, "documents", documentId, params] as const,
   referenceSourceCandidates: (sourceId: string, params: WordCandidatesParams) =>
@@ -54,7 +60,7 @@ export function useWordEvidence(
   enabled = true,
 ) {
   return useQuery({
-    queryKey: wordKeys.evidence(input.id ?? ""),
+    queryKey: wordKeys.evidence(input),
     queryFn: () =>
       getWordEvidence({
         id: input.id ?? "",

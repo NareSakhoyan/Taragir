@@ -66,7 +66,7 @@ export function SourceWordCandidatesTable({
   const hasLinkedLexeme = variant === "reference_source" && items.some((item) => Boolean(item.linked_lexeme));
   const hasReferenceStatus = variant === "reference_source" && items.some((item) => Boolean(item.match_status));
 
-  if (isLoading || isFetching) {
+  if (isLoading) {
     return (
       <div className="space-y-3">
         <div className="h-16 rounded-md bg-muted/30" />

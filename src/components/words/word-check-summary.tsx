@@ -71,9 +71,14 @@ export function WordCheckSummary({
             {messages.words.categories.referenceSources}
           </Badge>
         ) : null}
+        {data.found_in_trusted_external ? (
+          <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+            {messages.words.categories.trustedExternal}
+          </Badge>
+        ) : null}
       </div>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-3">
+      <div className="mt-4 grid gap-4 md:grid-cols-4">
         <div className="rounded-md border border-border/70 bg-muted/10 p-4">
           <p className="text-sm text-muted-foreground">{messages.words.check.existsLabel}</p>
           <p className="mt-2 font-semibold">
@@ -100,6 +105,34 @@ export function WordCheckSummary({
               data.reference_source_hit_count?.toLocaleString(locale) ?? "0",
             )}
           </p>
+        </div>
+        <div className="rounded-md border border-border/70 bg-muted/10 p-4">
+          <p className="text-sm text-muted-foreground">{messages.words.check.trustedExternalPresence}</p>
+          {data.trusted_external_error_message ? (
+            <p className="mt-2 text-sm text-amber-900">
+              {data.trusted_external_error_message || messages.words.check.trustedExternalUnavailable}
+            </p>
+          ) : (
+            <>
+              <p className="mt-2 font-semibold">
+                {data.found_in_trusted_external ? messages.common.yes : messages.common.no}
+              </p>
+              <p className="mt-1 text-sm text-foreground">
+                {messages.words.check.trustedExternalCount.replace(
+                  "{count}",
+                  data.trusted_external_hit_count?.toLocaleString(locale) ?? "0",
+                )}
+              </p>
+              {data.trusted_external_providers.length ? (
+                <p className="mt-1 text-sm text-foreground [overflow-wrap:anywhere]">
+                  {messages.words.check.trustedExternalProviders.replace(
+                    "{providers}",
+                    data.trusted_external_providers.join(", "),
+                  )}
+                </p>
+              ) : null}
+            </>
+          )}
         </div>
       </div>
 

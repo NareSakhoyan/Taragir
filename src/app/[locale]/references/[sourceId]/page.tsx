@@ -68,6 +68,8 @@ export default function ReferenceSourceDetailPage() {
     },
     sourceQuery.isSuccess,
   );
+  const isWordCandidatesTransitioning =
+    wordCandidatesQuery.isFetching && wordCandidatesQuery.isPlaceholderData;
   const sourceView = deriveReferenceSourceDetailView(source);
   const latestImport = sourceView.latestImport;
 
@@ -331,14 +333,14 @@ export default function ReferenceSourceDetailPage() {
               <div className="mt-6">
                 <SourceWordCandidatesTable
                   currentPage={wordPage}
-                data={wordCandidatesQuery.data}
-                emptyDescription={messages.references.wordsEmptyDescription}
-                emptyTitle={messages.references.wordsEmptyTitle}
-                errorMessage={wordCandidatesQuery.error?.message}
-                isFetching={wordCandidatesQuery.isFetching}
-                isLoading={wordCandidatesQuery.isLoading}
-                onPageChange={setWordPage}
-                onPageSizeChange={(nextPageSize) => {
+                  data={wordCandidatesQuery.data}
+                  emptyDescription={messages.references.wordsEmptyDescription}
+                  emptyTitle={messages.references.wordsEmptyTitle}
+                  errorMessage={wordCandidatesQuery.error?.message}
+                  isFetching={isWordCandidatesTransitioning}
+                  isLoading={wordCandidatesQuery.isLoading || isWordCandidatesTransitioning}
+                  onPageChange={setWordPage}
+                  onPageSizeChange={(nextPageSize) => {
                     setWordPageSize(nextPageSize);
                     setWordPage(1);
                   }}

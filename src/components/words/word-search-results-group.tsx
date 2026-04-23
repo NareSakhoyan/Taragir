@@ -11,6 +11,7 @@ type WordSearchResultsGroupProps = {
   total: number;
   onViewDetails: (item: WordEvidenceSummary) => void;
   emptyLabel: string;
+  errorMessage?: string | null;
 };
 
 export function WordSearchResultsGroup({
@@ -19,6 +20,7 @@ export function WordSearchResultsGroup({
   total,
   onViewDetails,
   emptyLabel,
+  errorMessage,
 }: WordSearchResultsGroupProps) {
   const { locale, messages } = useI18n();
 
@@ -35,7 +37,11 @@ export function WordSearchResultsGroup({
         </div>
       </div>
 
-      {items.length ? (
+      {errorMessage ? (
+        <div className="mt-4 rounded-md border border-amber-300/70 bg-amber-50/70 px-5 py-10 text-center">
+          <p className="text-sm text-amber-900">{errorMessage}</p>
+        </div>
+      ) : items.length ? (
         <div className="mt-4 space-y-3">
           {items.map((item, index) => (
             <WordResultCard

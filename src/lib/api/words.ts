@@ -10,13 +10,15 @@ import type {
   WordCandidatesParams,
   WordCheckResponse,
   WordEvidenceDetail,
+  WordInternalEvidenceItem,
   WordEvidenceSummary,
   WordLexemeSummary,
   WordReferenceMatchSummary,
   WordSearchCategory,
+  WordSearchGroup,
   WordSearchMode,
   WordSearchParams,
-  WordSearchResponse,
+  WordTrustedExternalEvidenceItem,
   WordSourceType,
 } from "@/lib/types/api";
 
@@ -28,6 +30,15 @@ type ListEnvelope<T> =
       limit?: number | null;
       offset?: number | null;
     };
+
+type RawWordSearchGroupEnvelope<T> = {
+  category?: WordSearchCategory | string | null;
+  items?: T[];
+  total?: number | null;
+  limit?: number | null;
+  offset?: number | null;
+  error_message?: string | null;
+};
 
 type RawWordLexemeSummary = Partial<WordLexemeSummary> & {
   lexeme_id?: string | null;
@@ -63,9 +74,20 @@ type RawWordEvidenceSummary = Partial<WordEvidenceSummary> & {
   source_type?: WordSourceType | null;
   source_id?: string | null;
   source_title?: string | null;
+  title?: string | null;
   page_number?: number | null;
   context_snippet?: string | null;
+  snippet?: string | null;
   reference_link?: string | null;
+  reference_url?: string | null;
+  url?: string | null;
+  provider_display_name?: string | null;
+  provider_name?: string | null;
+  provider?: string | null;
+  matched_form?: string | null;
+  matched_surface_form?: string | null;
+  match_type?: ReferenceMatchType | null;
+  match_score?: number | null;
   occurrence_count?: number | null;
   page_count?: number | null;
   sample_tokens?: string[] | null;
@@ -95,19 +117,61 @@ type RawWordEvidenceSummary = Partial<WordEvidenceSummary> & {
   has_reference_match?: boolean | null;
 };
 
+type RawWordEvidenceItem = {
+  id?: string | null;
+  category?: WordSearchCategory | string | null;
+  source_type?: WordSourceType | string | null;
+  page_number?: number | null;
+  context_snippet?: string | null;
+  snippet?: string | null;
+  reference_link?: string | null;
+  reference_url?: string | null;
+  url?: string | null;
+  source_title?: string | null;
+  title?: string | null;
+  extraction_method?: string | null;
+  source_warning?: string | null;
+  warning_message?: string | null;
+  provider_display_name?: string | null;
+  provider_name?: string | null;
+  provider?: string | null;
+  matched_form?: string | null;
+  matched_surface_form?: string | null;
+  surface_form?: string | null;
+  match_type?: ReferenceMatchType | null;
+  match_score?: number | null;
+};
+
 type RawWordEvidenceDetail = RawWordEvidenceSummary & {
-  evidence_items?: WordEvidenceDetail["evidence_items"];
+  evidence_items?: RawWordEvidenceItem[];
+  internal_evidence_items?: RawWordEvidenceItem[];
+  internal_evidence?: RawWordEvidenceItem[];
+  trusted_external_evidence_items?: RawWordEvidenceItem[];
+  trusted_external_sources?: RawWordEvidenceItem[];
+  trusted_external_matches?: RawWordEvidenceItem[];
+  external_evidence_items?: RawWordEvidenceItem[];
+  external_sources?: RawWordEvidenceItem[];
+  external_matches?: RawWordEvidenceItem[];
 };
 
 type RawWordSearchPayload =
-  | WordSearchResponse
+  | {
+      query?: string;
+      mode?: WordSearchMode;
+      groups?: RawWordSearchGroupEnvelope<RawWordEvidenceSummary>[];
+    }
   | RawWordEvidenceSummary[]
   | {
       items?: RawWordEvidenceSummary[];
-      lexicon?: ListEnvelope<RawWordEvidenceSummary>;
-      documents?: ListEnvelope<RawWordEvidenceSummary>;
-      imported_books?: ListEnvelope<RawWordEvidenceSummary>;
-      reference_sources?: ListEnvelope<RawWordEvidenceSummary>;
+      lexicon?: ListEnvelope<RawWordEvidenceSummary> | RawWordSearchGroupEnvelope<RawWordEvidenceSummary>;
+      documents?: ListEnvelope<RawWordEvidenceSummary> | RawWordSearchGroupEnvelope<RawWordEvidenceSummary>;
+      imported_books?: ListEnvelope<RawWordEvidenceSummary> | RawWordSearchGroupEnvelope<RawWordEvidenceSummary>;
+      reference_sources?: ListEnvelope<RawWordEvidenceSummary> | RawWordSearchGroupEnvelope<RawWordEvidenceSummary>;
+      trusted_external?: ListEnvelope<RawWordEvidenceSummary> | RawWordSearchGroupEnvelope<RawWordEvidenceSummary>;
+      trustedExternal?: ListEnvelope<RawWordEvidenceSummary> | RawWordSearchGroupEnvelope<RawWordEvidenceSummary>;
+      external?: ListEnvelope<RawWordEvidenceSummary> | RawWordSearchGroupEnvelope<RawWordEvidenceSummary>;
+      trusted_external_error_message?: string | null;
+      trustedExternalError?: string | null;
     };
 
 type RawWordCheckResponse = Partial<WordCheckResponse> & {
@@ -119,9 +183,79 @@ type RawWordCheckResponse = Partial<WordCheckResponse> & {
   found_in_books?: boolean;
   found_in_documents?: boolean;
   found_in_sources?: boolean;
+  found_in_external?: boolean;
+  found_in_trusted_external_sources?: boolean;
   document_count?: number | null;
   reference_source_count?: number | null;
+  trusted_external_count?: number | null;
+  external_count?: number | null;
+  external_hit_count?: number | null;
+  trusted_external_providers?: string[] | null;
+  trusted_external_provider_display_names?: string[] | null;
+  external_providers?: string[] | null;
+  trusted_external_error_message?: string | null;
+  external_error_message?: string | null;
 };
+
+function normalizeWordSearchCategory(
+  value: WordSearchCategory | string | null | undefined,
+): WordSearchCategory | null {
+  switch (value) {
+    case "lexicon":
+      return "lexicon";
+    case "documents":
+    case "imported_books":
+    case "books":
+      return "documents";
+    case "reference_sources":
+    case "reference_source":
+      return "reference_sources";
+    case "trusted_external":
+    case "external":
+    case "external_source":
+    case "trusted-external":
+      return "trusted_external";
+    default:
+      return null;
+  }
+}
+
+function normalizeWordSourceType(
+  value: WordSourceType | string | null | undefined,
+  category?: WordSearchCategory | string | null,
+): WordSourceType {
+  switch (value) {
+    case "document":
+    case "documents":
+    case "book":
+    case "imported_book":
+      return "document";
+    case "reference_source":
+    case "reference_sources":
+      return "reference_source";
+    case "trusted_external":
+    case "external":
+    case "external_source":
+    case "trusted-external":
+      return "trusted_external";
+    case "lexicon":
+      return "lexicon";
+    default: {
+      const normalizedCategory = normalizeWordSearchCategory(category);
+
+      switch (normalizedCategory) {
+        case "documents":
+          return "document";
+        case "reference_sources":
+          return "reference_source";
+        case "trusted_external":
+          return "trusted_external";
+        default:
+          return "lexicon";
+      }
+    }
+  }
+}
 
 function inferCategory(sourceType: WordSourceType | null | undefined): WordSearchCategory {
   switch (sourceType) {
@@ -129,9 +263,32 @@ function inferCategory(sourceType: WordSourceType | null | undefined): WordSearc
       return "documents";
     case "reference_source":
       return "reference_sources";
+    case "trusted_external":
+    case "external_source":
+      return "trusted_external";
     default:
       return "lexicon";
   }
+}
+
+function normalizeProviderDisplayName(
+  raw:
+    | Pick<RawWordEvidenceSummary, "provider_display_name" | "provider_name" | "provider">
+    | Pick<RawWordEvidenceItem, "provider_display_name" | "provider_name" | "provider">
+    | null
+    | undefined,
+) {
+  return raw?.provider_display_name ?? raw?.provider_name ?? raw?.provider ?? null;
+}
+
+function normalizeReferenceLink(
+  raw:
+    | Pick<RawWordEvidenceSummary, "reference_link" | "reference_url" | "url">
+    | Pick<RawWordEvidenceItem, "reference_link" | "reference_url" | "url">
+    | null
+    | undefined,
+) {
+  return raw?.reference_link ?? raw?.reference_url ?? raw?.url ?? null;
 }
 
 function normalizeWordLexemeSummary(raw: RawWordLexemeSummary | null | undefined): WordLexemeSummary | null {
@@ -188,7 +345,7 @@ function normalizeWordEvidenceSummary(
   raw: RawWordEvidenceSummary,
   index = 0,
 ): WordEvidenceSummary {
-  const sourceType = raw.source_type ?? "lexicon";
+  const sourceType = normalizeWordSourceType(raw.source_type, raw.category);
   const linkedLexeme =
     normalizeWordLexemeSummary(raw.linked_lexeme) ??
     normalizeWordLexemeSummary(raw.lexeme) ??
@@ -204,7 +361,9 @@ function normalizeWordEvidenceSummary(
       best_match_type: raw.reference_match?.match_type ?? null,
     });
   const displayWord = raw.display_word ?? raw.word ?? raw.word_form ?? raw.surface_form ?? raw.normalized_form ?? "—";
-  const category = raw.category ?? inferCategory(sourceType);
+  const category = normalizeWordSearchCategory(raw.category) ?? inferCategory(sourceType);
+  const providerDisplayName = normalizeProviderDisplayName(raw);
+  const matchedForm = raw.matched_form ?? raw.matched_surface_form ?? null;
 
   return {
     id:
@@ -216,10 +375,14 @@ function normalizeWordEvidenceSummary(
     category,
     source_type: sourceType,
     source_id: raw.source_id ?? null,
-    source_title: raw.source_title ?? raw.source_name ?? raw.source_display_name ?? null,
+    source_title: raw.source_title ?? raw.source_name ?? raw.source_display_name ?? raw.title ?? null,
     page_number: raw.page_number ?? null,
-    context_snippet: raw.context_snippet ?? null,
-    reference_link: raw.reference_link ?? null,
+    context_snippet: raw.context_snippet ?? raw.snippet ?? null,
+    reference_link: normalizeReferenceLink(raw),
+    provider_display_name: providerDisplayName,
+    matched_form: matchedForm,
+    match_type: raw.match_type ?? null,
+    match_score: raw.match_score ?? null,
     occurrence_count: raw.occurrence_count ?? null,
     page_count: raw.page_count ?? null,
     sample_tokens: raw.sample_tokens ?? [],
@@ -237,6 +400,50 @@ function normalizeWordEvidenceSummary(
       (referenceMatch?.has_match ? "matched" : raw.has_reference_match === false ? "unmatched" : null),
     linked_lexeme: linkedLexeme,
     reference_match: referenceMatch,
+  };
+}
+
+function isTrustedExternalEvidenceItem(raw: RawWordEvidenceItem) {
+  const category = normalizeWordSearchCategory(raw.category);
+  const sourceType = normalizeWordSourceType(raw.source_type, category);
+
+  return (
+    category === "trusted_external" ||
+    sourceType === "trusted_external" ||
+    Boolean(normalizeProviderDisplayName(raw))
+  );
+}
+
+function normalizeInternalEvidenceItem(
+  raw: RawWordEvidenceItem,
+  index: number,
+): WordInternalEvidenceItem {
+  return {
+    id: raw.id ?? `internal:${raw.source_title ?? "unknown"}:${raw.page_number ?? index}`,
+    page_number: raw.page_number ?? null,
+    context_snippet: raw.context_snippet ?? raw.snippet ?? null,
+    reference_link: normalizeReferenceLink(raw),
+    source_title: raw.source_title ?? raw.title ?? null,
+    extraction_method: raw.extraction_method ?? null,
+    source_warning: raw.source_warning ?? raw.warning_message ?? null,
+  };
+}
+
+function normalizeTrustedExternalEvidenceItem(
+  raw: RawWordEvidenceItem,
+  index: number,
+): WordTrustedExternalEvidenceItem {
+  return {
+    id: raw.id ?? `trusted-external:${normalizeProviderDisplayName(raw) ?? "unknown"}:${raw.source_title ?? raw.title ?? index}`,
+    provider_display_name: normalizeProviderDisplayName(raw),
+    source_title: raw.source_title ?? raw.title ?? null,
+    snippet: raw.snippet ?? raw.context_snippet ?? null,
+    matched_form: raw.matched_form ?? raw.matched_surface_form ?? raw.surface_form ?? null,
+    reference_link: normalizeReferenceLink(raw),
+    match_type: raw.match_type ?? null,
+    match_score: raw.match_score ?? null,
+    source_warning: raw.source_warning ?? null,
+    warning_message: raw.warning_message ?? null,
   };
 }
 
@@ -264,9 +471,26 @@ function normalizeWordEvidencePage(
 
 function normalizeWordSearchGroup(
   category: WordSearchCategory,
-  payload: ListEnvelope<RawWordEvidenceSummary> | undefined,
-): { category: WordSearchCategory; items: WordEvidenceSummary[]; total: number } {
-  const page = normalizeWordEvidencePage(payload ?? []);
+  payload:
+    | ListEnvelope<RawWordEvidenceSummary>
+    | RawWordSearchGroupEnvelope<RawWordEvidenceSummary>
+    | undefined,
+  errorMessage?: string | null,
+): WordSearchGroup {
+  const page = Array.isArray(payload)
+    ? normalizeWordEvidencePage(payload)
+    : normalizeWordEvidencePage(
+        payload
+          ? {
+              items: payload.items ?? [],
+              total: payload.total,
+              limit: payload.limit,
+              offset: payload.offset,
+            }
+          : [],
+      );
+  const payloadError =
+    payload && !Array.isArray(payload) && "error_message" in payload ? payload.error_message ?? null : null;
 
   return {
     category,
@@ -275,17 +499,35 @@ function normalizeWordSearchGroup(
       category: item.category ?? category,
     })),
     total: page.total,
+    error_message: errorMessage ?? payloadError ?? null,
   };
+}
+
+function completeWordSearchGroups(groups: WordSearchGroup[]) {
+  const groupMap = new Map<WordSearchCategory, WordSearchGroup>(
+    groups.map((group) => [group.category, group]),
+  );
+
+  return ["lexicon", "documents", "reference_sources", "trusted_external"].map((category) => {
+    const normalizedCategory = category as WordSearchCategory;
+    return (
+      groupMap.get(normalizedCategory) ?? {
+        category: normalizedCategory,
+        items: [],
+        total: 0,
+        error_message: null,
+      }
+    );
+  });
 }
 
 function normalizeWordSearchResponse(
   payload: RawWordSearchPayload,
   query: string,
   mode: WordSearchMode,
-): WordSearchResponse {
+) {
   if (Array.isArray(payload)) {
     const grouped = new Map<WordSearchCategory, WordEvidenceSummary[]>();
-    const categories: WordSearchCategory[] = ["lexicon", "documents", "reference_sources"];
 
     for (const [index, item] of payload.entries()) {
       const normalized = normalizeWordEvidenceSummary(item, index);
@@ -296,11 +538,14 @@ function normalizeWordSearchResponse(
     return {
       query,
       mode,
-      groups: categories.map((category) => ({
-        category,
-        items: grouped.get(category) ?? [],
-        total: grouped.get(category)?.length ?? 0,
-      })),
+      groups: completeWordSearchGroups(
+        ["lexicon", "documents", "reference_sources", "trusted_external"].map((category) => ({
+          category: category as WordSearchCategory,
+          items: grouped.get(category as WordSearchCategory) ?? [],
+          total: grouped.get(category as WordSearchCategory)?.length ?? 0,
+          error_message: null,
+        })),
+      ),
     };
   }
 
@@ -308,13 +553,13 @@ function normalizeWordSearchResponse(
     return {
       query: payload.query ?? query,
       mode: payload.mode ?? mode,
-      groups: payload.groups.map((group) => ({
-        category: group.category,
-        items: (group.items ?? []).map((item, index) =>
-          normalizeWordEvidenceSummary(item as RawWordEvidenceSummary, index),
-        ),
-        total: group.total ?? group.items?.length ?? 0,
-      })),
+      groups: completeWordSearchGroups(
+        payload.groups.flatMap((group) => {
+          const category = normalizeWordSearchCategory(group.category);
+
+          return category ? [normalizeWordSearchGroup(category, group)] : [];
+        }),
+      ),
     };
   }
 
@@ -322,16 +567,24 @@ function normalizeWordSearchResponse(
     "lexicon" in payload ||
     "documents" in payload ||
     "imported_books" in payload ||
-    "reference_sources" in payload
+    "reference_sources" in payload ||
+    "trusted_external" in payload ||
+    "trustedExternal" in payload ||
+    "external" in payload
   ) {
     return {
       query,
       mode,
-      groups: [
+      groups: completeWordSearchGroups([
         normalizeWordSearchGroup("lexicon", payload.lexicon),
         normalizeWordSearchGroup("documents", payload.documents ?? payload.imported_books),
         normalizeWordSearchGroup("reference_sources", payload.reference_sources),
-      ],
+        normalizeWordSearchGroup(
+          "trusted_external",
+          payload.trusted_external ?? payload.trustedExternal ?? payload.external,
+          payload.trusted_external_error_message ?? payload.trustedExternalError ?? null,
+        ),
+      ]),
     };
   }
 
@@ -339,6 +592,18 @@ function normalizeWordSearchResponse(
 }
 
 function normalizeWordCheckResponse(raw: RawWordCheckResponse, query: string): WordCheckResponse {
+  const trustedExternalProviders = Array.from(
+    new Set(
+      (raw.trusted_external_providers ??
+        raw.trusted_external_provider_display_names ??
+        raw.external_providers ??
+        []
+      )
+        .map((provider) => provider?.trim())
+        .filter((provider): provider is string => Boolean(provider)),
+    ),
+  );
+
   return {
     query: raw.query ?? raw.q ?? query,
     exists_in_lexicon: raw.exists_in_lexicon ?? raw.exists ?? raw.in_lexicon ?? false,
@@ -349,8 +614,21 @@ function normalizeWordCheckResponse(raw: RawWordCheckResponse, query: string): W
       .filter((lexeme): lexeme is WordLexemeSummary => Boolean(lexeme)),
     found_in_documents: raw.found_in_documents ?? raw.found_in_books ?? false,
     found_in_reference_sources: raw.found_in_reference_sources ?? raw.found_in_sources ?? false,
+    found_in_trusted_external:
+      raw.found_in_trusted_external ??
+      raw.found_in_trusted_external_sources ??
+      raw.found_in_external ??
+      false,
     document_hit_count: raw.document_hit_count ?? raw.document_count ?? null,
     reference_source_hit_count: raw.reference_source_hit_count ?? raw.reference_source_count ?? null,
+    trusted_external_hit_count:
+      raw.trusted_external_hit_count ??
+      raw.trusted_external_count ??
+      raw.external_hit_count ??
+      raw.external_count ??
+      null,
+    trusted_external_providers: trustedExternalProviders,
+    trusted_external_error_message: raw.trusted_external_error_message ?? raw.external_error_message ?? null,
   };
 }
 
@@ -364,6 +642,7 @@ export async function searchWords(params: WordSearchParams) {
       include_lexicon: params.include_lexicon ?? true,
       include_documents: params.include_documents ?? true,
       include_reference_sources: params.include_reference_sources ?? true,
+      include_trusted_external: params.include_trusted_external ?? true,
       limit: params.limit,
       offset: params.offset,
     },
@@ -402,10 +681,37 @@ export async function getWordEvidence(input: {
   });
 
   const detail = Array.isArray(payload) ? payload[0] : payload;
+  const sharedEvidenceItems = detail?.evidence_items ?? [];
+  const normalizedSharedTrustedExternal = sharedEvidenceItems
+    .filter(isTrustedExternalEvidenceItem)
+    .map((item, index) => normalizeTrustedExternalEvidenceItem(item, index));
+  const normalizedSharedInternal = sharedEvidenceItems
+    .filter((item) => !isTrustedExternalEvidenceItem(item))
+    .map((item, index) => normalizeInternalEvidenceItem(item, index));
+  const internalEvidenceItems =
+    detail?.internal_evidence_items ??
+    detail?.internal_evidence ??
+    (detail?.evidence_items ? undefined : []);
+  const trustedExternalEvidenceItems =
+    detail?.trusted_external_evidence_items ??
+    detail?.trusted_external_sources ??
+    detail?.trusted_external_matches ??
+    detail?.external_evidence_items ??
+    detail?.external_sources ??
+    detail?.external_matches ??
+    (detail?.evidence_items ? undefined : []);
 
   return {
     ...normalizeWordEvidenceSummary(detail ?? {}, 0),
-    evidence_items: detail?.evidence_items ?? [],
+    evidence_items:
+      internalEvidenceItems?.map((item, index) => normalizeInternalEvidenceItem(item, index)) ??
+      normalizedSharedInternal,
+    internal_evidence_items:
+      internalEvidenceItems?.map((item, index) => normalizeInternalEvidenceItem(item, index)) ??
+      normalizedSharedInternal,
+    trusted_external_evidence_items:
+      trustedExternalEvidenceItems?.map((item, index) => normalizeTrustedExternalEvidenceItem(item, index)) ??
+      normalizedSharedTrustedExternal,
   } satisfies WordEvidenceDetail;
 }
 

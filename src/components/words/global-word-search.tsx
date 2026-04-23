@@ -17,6 +17,7 @@ import type { WordEvidenceSummary, WordSearchCategory, WordSearchMode } from "@/
 import {
   WORD_SEARCH_CATEGORY_ORDER,
   getWordCategoryLabel,
+  getWordGroupEmptyLabel,
   isWordSearchMode,
   parseWordSearchCategories,
   serializeWordSearchCategories,
@@ -89,6 +90,7 @@ export function GlobalWordSearch() {
       include_lexicon: categories.includes("lexicon"),
       include_documents: categories.includes("documents"),
       include_reference_sources: categories.includes("reference_sources"),
+      include_trusted_external: categories.includes("trusted_external"),
       limit,
       offset: 0,
     },
@@ -200,7 +202,8 @@ export function GlobalWordSearch() {
           {searchQuery.data?.groups.map((group) => (
             <WordSearchResultsGroup
               category={group.category}
-              emptyLabel={messages.words.emptyStates.noResults}
+              emptyLabel={getWordGroupEmptyLabel(group.category, messages)}
+              errorMessage={group.error_message}
               items={group.items}
               key={group.category}
               onViewDetails={setSelectedWord}
