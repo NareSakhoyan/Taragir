@@ -121,5 +121,6 @@ export function toReferenceMatchingWordSummary(
         }
       : null,
     reference_match: null,
+    morphology: null,
   };
 }

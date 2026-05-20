@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ImageIcon, LoaderCircle, ZoomIn, ZoomOut } from "lucide-react";
 
 import { GroupClassificationBadges } from "@/components/lexicon/group-classification-badges";
 import { GroupLinkedBadge } from "@/components/lexicon/group-linked-badge";
@@ -9,6 +10,13 @@ import { GroupStateBadge } from "@/components/lexicon/group-state-badge";
 import { ReferenceMatchBadge } from "@/components/lexicon/reference-match-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
@@ -19,11 +27,14 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { apiFetchBlob } from "@/lib/api/client";
 import { useLexiconGroup } from "@/lib/hooks/use-lexicon-group";
 import { useI18n } from "@/lib/i18n/use-i18n";
+import type { LexiconGroupOccurrence } from "@/lib/types/api";
 import { ROUTES } from "@/lib/utils/constants";
 import { buildDocumentEvidenceHref } from "@/lib/utils/evidence-links";
 import { formatNumber } from "@/lib/utils/format";
+import { highlightContextSnippet } from "@/lib/utils/highlight-snippet";
 
 type LexiconGroupDetailSheetProps = {
   normalizedForm: string | null;
@@ -41,27 +52,142 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function HighlightedSnippet({ snippet, token }: { snippet: string; token: string }) {
-  if (!snippet) {
-    return null;
+function OccurrenceSourceImageButton({
+  messages,
+  occurrence,
+  onOpen,
+}: {
+  messages: ReturnType<typeof useI18n>["messages"];
+  occurrence: LexiconGroupOccurrence;
+  onOpen: (occurrence: LexiconGroupOccurrence) => void;
+}) {
+  if (!occurrence.page_image_available || !occurrence.page_image_api_path) {
+    return (
+      <p className="mt-2 text-xs text-muted-foreground">
+        {messages.lexicon.detail.sourceImageUnavailable}
+      </p>
+    );
   }
-
-  const matchIndex = token ? snippet.indexOf(token) : -1;
-
-  if (matchIndex < 0) {
-    return <>{snippet}</>;
-  }
-
-  const before = snippet.slice(0, matchIndex);
-  const match = snippet.slice(matchIndex, matchIndex + token.length);
-  const after = snippet.slice(matchIndex + token.length);
 
   return (
-    <>
-      {before}
-      <strong className="font-semibold text-foreground">{match}</strong>
-      {after}
-    </>
+    <Button
+      className="mt-2 h-8 gap-1.5 px-2 text-xs"
+      onClick={() => onOpen(occurrence)}
+      type="button"
+      variant="outline"
+    >
+      <ImageIcon className="h-3.5 w-3.5" />
+      {messages.lexicon.detail.openSourceImage}
+    </Button>
+  );
+}
+
+function OccurrenceImageDialog({
+  locale,
+  messages,
+  occurrence,
+  onOpenChange,
+}: {
+  locale: string;
+  messages: ReturnType<typeof useI18n>["messages"];
+  occurrence: LexiconGroupOccurrence | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(100);
+  const isLoading = Boolean(occurrence?.page_image_api_path && !imageUrl && !error);
+
+  useEffect(() => {
+    if (!occurrence?.page_image_api_path) {
+      return;
+    }
+
+    let revoked = false;
+    let objectUrl: string | null = null;
+
+    void apiFetchBlob(occurrence.page_image_api_path)
+      .then((blob) => {
+        if (revoked) {
+          return;
+        }
+        objectUrl = URL.createObjectURL(blob);
+        setImageUrl(objectUrl);
+      })
+      .catch((fetchError) => {
+        if (!revoked) {
+          setError(fetchError instanceof Error ? fetchError.message : messages.lexicon.detail.sourceImageUnavailable);
+        }
+      });
+
+    return () => {
+      revoked = true;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [messages.lexicon.detail.sourceImageUnavailable, occurrence?.page_image_api_path]);
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={Boolean(occurrence)}>
+      <DialogContent className="max-h-[92vh] max-w-[min(72rem,96vw)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden p-0">
+        <DialogHeader className="border-b border-border/70 px-6 py-5 pr-12">
+          <DialogTitle>{messages.lexicon.detail.sourceImageTitle}</DialogTitle>
+          <DialogDescription>
+            {occurrence
+              ? `${occurrence.document_title} · ${messages.lexicon.detail.page} ${formatNumber(occurrence.page_number, locale)}`
+              : messages.lexicon.detail.sourceImageDescription}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex min-h-0 flex-col gap-3 px-6 pb-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">{messages.lexicon.detail.sourceImageDescription}</p>
+            <div className="flex items-center gap-2">
+              <Button
+                disabled={zoom <= 50}
+                onClick={() => setZoom((current) => Math.max(50, current - 25))}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              <span className="min-w-14 text-center text-sm tabular-nums text-muted-foreground">{zoom}%</span>
+              <Button
+                disabled={zoom >= 300}
+                onClick={() => setZoom((current) => Math.min(300, current + 25))}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="min-h-[20rem] overflow-auto rounded-md border border-border/80 bg-muted/20 p-3">
+            {isLoading ? (
+              <div className="flex h-[24rem] items-center justify-center gap-2 text-sm text-muted-foreground">
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+                {messages.common.loading}
+              </div>
+            ) : error ? (
+              <div className="flex h-[24rem] items-center justify-center text-sm text-destructive">{error}</div>
+            ) : imageUrl ? (
+              // Blob URLs come from the authenticated API response and cannot be optimized by Next Image.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                alt={messages.lexicon.detail.sourceImageTitle}
+                className="mx-auto h-auto max-w-none rounded-sm shadow-sm"
+                src={imageUrl}
+                style={{ width: `${zoom}%` }}
+              />
+            ) : null}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -73,14 +199,22 @@ export function LexiconGroupDetailSheet({
 }: LexiconGroupDetailSheetProps) {
   const { href, locale, messages } = useI18n();
   const groupQuery = useLexiconGroup(normalizedForm, open);
+  const [imageOccurrence, setImageOccurrence] = useState<LexiconGroupOccurrence | null>(null);
 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
-      <SheetContent className="flex w-full max-w-4xl flex-col gap-6 p-0" side="right">
+      <SheetContent
+        className="flex h-full w-full max-w-none flex-col gap-6 p-0 sm:w-[min(64rem,92vw)] sm:max-w-[64rem] lg:w-[min(72rem,94vw)] lg:max-w-[72rem]"
+        side="right"
+      >
         <div className="border-b border-border/70 px-6 py-6">
-          <SheetHeader>
-            <SheetTitle>{normalizedForm ?? messages.lexicon.detail.fallbackTitle}</SheetTitle>
-            <SheetDescription>{messages.lexicon.detail.description}</SheetDescription>
+          <SheetHeader className="space-y-3 text-left">
+            <SheetTitle className="pr-8 font-serif text-2xl tracking-tight">
+              {normalizedForm ?? messages.lexicon.detail.fallbackTitle}
+            </SheetTitle>
+            <SheetDescription className="max-w-none text-pretty text-sm leading-relaxed">
+              {messages.lexicon.detail.description}
+            </SheetDescription>
           </SheetHeader>
         </div>
 
@@ -211,14 +345,24 @@ export function LexiconGroupDetailSheet({
                                   </div>
                                 </TableCell>
                                 <TableCell>{formatNumber(occurrence.page_number, locale)}</TableCell>
-                                <TableCell className="max-w-xl">
+                                <TableCell className="min-w-[20rem] max-w-3xl">
                                   <div className="rounded-md bg-muted/20 px-4 py-3 text-sm leading-7 text-foreground/90">
                                     {occurrence.context_snippet ? (
-                                      <HighlightedSnippet snippet={occurrence.context_snippet} token={occurrence.token} />
+                                      highlightContextSnippet({
+                                        snippet: occurrence.context_snippet,
+                                        token: occurrence.token,
+                                        highlightStart: occurrence.context_highlight_start,
+                                        highlightEnd: occurrence.context_highlight_end,
+                                      })
                                     ) : (
                                       messages.lexicon.detail.noContextSnippet
                                     )}
                                   </div>
+                                  <OccurrenceSourceImageButton
+                                    messages={messages}
+                                    occurrence={occurrence}
+                                    onOpen={setImageOccurrence}
+                                  />
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -250,11 +394,21 @@ export function LexiconGroupDetailSheet({
                               </p>
                               <p className="rounded-md bg-background px-3 py-3 text-sm leading-7">
                                 {occurrence.context_snippet ? (
-                                  <HighlightedSnippet snippet={occurrence.context_snippet} token={occurrence.token} />
+                                  highlightContextSnippet({
+                                    snippet: occurrence.context_snippet,
+                                    token: occurrence.token,
+                                    highlightStart: occurrence.context_highlight_start,
+                                    highlightEnd: occurrence.context_highlight_end,
+                                  })
                                 ) : (
                                   messages.lexicon.detail.noContextSnippet
                                 )}
                               </p>
+                              <OccurrenceSourceImageButton
+                                messages={messages}
+                                occurrence={occurrence}
+                                onOpen={setImageOccurrence}
+                              />
                             </div>
                           </div>
                         ))}
@@ -271,6 +425,17 @@ export function LexiconGroupDetailSheet({
             </div>
           ) : null}
         </div>
+        <OccurrenceImageDialog
+          key={imageOccurrence?.id ?? "empty"}
+          locale={locale}
+          messages={messages}
+          occurrence={imageOccurrence}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) {
+              setImageOccurrence(null);
+            }
+          }}
+        />
       </SheetContent>
     </Sheet>
   );

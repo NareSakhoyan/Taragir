@@ -3,8 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { createLexeme } from "@/lib/api/lexemes";
-import { lexiconKeys } from "@/lib/hooks/use-lexicon-groups";
-import { lexemeKeys } from "@/lib/hooks/use-lexemes";
+import { invalidateCurationQueries } from "@/lib/hooks/invalidate-curation";
 
 export function useCreateLexeme() {
   const queryClient = useQueryClient();
@@ -12,10 +11,7 @@ export function useCreateLexeme() {
   return useMutation({
     mutationFn: createLexeme,
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: lexiconKeys.all }),
-        queryClient.invalidateQueries({ queryKey: lexemeKeys.all }),
-      ]);
+      await invalidateCurationQueries(queryClient);
     },
   });
 }

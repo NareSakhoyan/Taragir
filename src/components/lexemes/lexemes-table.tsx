@@ -18,6 +18,7 @@ type LexemesTableProps = {
   sortKey: LexemeSortKey | null;
   sortDirection: SortDirection | null;
   onSort: (key: LexemeSortKey) => void;
+  showReferenceSummary?: boolean;
 };
 
 export type LexemeSortKey =
@@ -60,7 +61,13 @@ function SortableHead({
   );
 }
 
-export function LexemesTable({ lexemes, sortKey, sortDirection, onSort }: LexemesTableProps) {
+export function LexemesTable({
+  lexemes,
+  sortKey,
+  sortDirection,
+  onSort,
+  showReferenceSummary = false,
+}: LexemesTableProps) {
   const router = useRouter();
   const { href, locale, messages } = useI18n();
 
@@ -104,13 +111,17 @@ export function LexemesTable({ lexemes, sortKey, sortDirection, onSort }: Lexeme
                 <TableCell>{formatNumber(lexeme.form_count, locale)}</TableCell>
                 <TableCell>{formatNumber(lexeme.occurrence_count, locale)}</TableCell>
                 <TableCell className="min-w-[14rem]">
-                  <ReferenceMatchBadge
-                    bestMatch={lexeme.best_reference_match}
-                    compact
-                    hasMatch={lexeme.has_reference_match}
-                    matchCount={lexeme.reference_match_count}
-                    showUnmatched
-                  />
+                  {showReferenceSummary ? (
+                    <ReferenceMatchBadge
+                      bestMatch={lexeme.best_reference_match}
+                      compact
+                      hasMatch={lexeme.has_reference_match}
+                      matchCount={lexeme.reference_match_count}
+                      showUnmatched
+                    />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">{messages.lexemes.referenceOnDetail}</span>
+                  )}
                 </TableCell>
                 <TableCell>{formatDate(lexeme.created_at, locale)}</TableCell>
                 <TableCell className="text-right">
@@ -148,15 +159,17 @@ export function LexemesTable({ lexemes, sortKey, sortDirection, onSort }: Lexeme
               <span>{formatNumber(lexeme.occurrence_count, locale)} {messages.lexemes.counts.occurrences}</span>
               <span>{formatDate(lexeme.created_at, locale)}</span>
             </div>
-            <div className="mt-4">
-              <ReferenceMatchBadge
-                bestMatch={lexeme.best_reference_match}
-                compact
-                hasMatch={lexeme.has_reference_match}
-                matchCount={lexeme.reference_match_count}
-                showUnmatched
-              />
-            </div>
+            {showReferenceSummary ? (
+              <div className="mt-4">
+                <ReferenceMatchBadge
+                  bestMatch={lexeme.best_reference_match}
+                  compact
+                  hasMatch={lexeme.has_reference_match}
+                  matchCount={lexeme.reference_match_count}
+                  showUnmatched
+                />
+              </div>
+            ) : null}
             <div className="mt-4 flex justify-end">
               <Link href={href(`${ROUTES.lexemes}/${lexeme.id}`)} onClick={(event) => event.stopPropagation()}>
                 <Button size="sm" variant="outline">

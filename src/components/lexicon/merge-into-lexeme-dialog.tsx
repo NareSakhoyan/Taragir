@@ -14,13 +14,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useMergeLexemeGroups } from "@/lib/hooks/use-merge-lexeme-groups";
-import { useLexemes } from "@/lib/hooks/use-lexemes";
-import type { Locale } from "@/lib/i18n/config";
+import { useLinkLexiconGroups } from "@/lib/hooks/use-link-lexicon-groups";
+import { useLexemePicker } from "@/lib/hooks/use-lexeme-picker";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { toast } from "@/lib/notifications";
-import type { LexemeSummary } from "@/lib/types/api";
-import { formatNumber } from "@/lib/utils/format";
+import type { LexemePickerItem } from "@/lib/types/api";
 
 type MergeIntoLexemeDialogProps = {
   open: boolean;
@@ -60,18 +58,12 @@ function getConflictForms(error: ApiError) {
 
 function LexemeOption({
   lexeme,
-  locale,
   selected,
   onSelect,
-  formLabel,
-  occurrenceLabel,
 }: {
-  lexeme: LexemeSummary;
-  locale: Locale;
+  lexeme: LexemePickerItem;
   selected: boolean;
   onSelect: () => void;
-  formLabel: string;
-  occurrenceLabel: string;
 }) {
   return (
     <button
@@ -86,10 +78,6 @@ function LexemeOption({
         <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{lexeme.status}</span>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">{lexeme.canonical_normalized_form}</p>
-      <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-        <span>{formatNumber(lexeme.form_count, locale)} {formLabel}</span>
-        <span>{formatNumber(lexeme.occurrence_count, locale)} {occurrenceLabel}</span>
-      </div>
     </button>
   );
 }
@@ -104,17 +92,20 @@ export function MergeIntoLexemeDialog({
   const deferredSearch = useDeferredValue(search);
   const [selectedLexemeId, setSelectedLexemeId] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const lexemesQuery = useLexemes({
-    search: deferredSearch.trim() || undefined,
-    limit: 20,
-    offset: 0,
-  });
+  const lexemesQuery = useLexemePicker(
+    {
+      search: deferredSearch.trim() || undefined,
+      limit: 20,
+      offset: 0,
+    },
+    open,
+  );
 
   const selectedLexeme = useMemo(
     () => lexemesQuery.data?.items.find((lexeme) => lexeme.id === selectedLexemeId) ?? null,
     [lexemesQuery.data?.items, selectedLexemeId],
   );
-  const mergeMutation = useMergeLexemeGroups(selectedLexemeId);
+  const mergeMutation = useLinkLexiconGroups();
 
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
@@ -142,6 +133,7 @@ export function MergeIntoLexemeDialog({
 
     try {
       await mergeMutation.mutateAsync({
+        lexeme_id: selectedLexemeId,
         normalized_forms: selectedNormalizedForms,
       });
 
@@ -197,11 +189,8 @@ export function MergeIntoLexemeDialog({
                   ) : lexemesQuery.data?.items.length ? (
                     lexemesQuery.data.items.map((lexeme) => (
                       <LexemeOption
-                        formLabel={messages.lexicon.mergeDialog.forms}
                         key={lexeme.id}
                         lexeme={lexeme}
-                        locale={locale}
-                        occurrenceLabel={messages.lexicon.mergeDialog.occurrences}
                         onSelect={() => setSelectedLexemeId(lexeme.id)}
                         selected={selectedLexemeId === lexeme.id}
                       />

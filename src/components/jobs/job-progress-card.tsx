@@ -152,12 +152,22 @@ export function JobProgressCard({
         <div className="rounded-md border border-emerald-200 bg-emerald-50/70 p-5 shadow-sm">
           <p className="text-sm font-medium text-emerald-900">{messages.job.resultReady}</p>
           <p className="mt-1 text-sm text-emerald-800">{messages.job.completedResultDescription}</p>
-          <Link className="mt-4 inline-flex" href={href(resultAction.href)}>
-            <Button>
-              {resultAction.label}
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
+          <div className="mt-4 flex flex-wrap gap-2">
+              <Link className="inline-flex" href={href(resultAction.href)}>
+                <Button>
+                  {resultAction.label}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              {"secondaryHref" in resultAction && resultAction.secondaryHref ? (
+                <Link className="inline-flex" href={href(resultAction.secondaryHref)}>
+                  <Button type="button" variant="outline">
+                    {resultAction.secondaryLabel}
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              ) : null}
+          </div>
         </div>
       ) : null}
     </div>

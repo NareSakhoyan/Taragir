@@ -32,6 +32,17 @@ Authenticated frontend for uploading Armenian historical books, tracking ingesti
 - Partial external failure is handled softly: internal results can still render while the trusted external group shows a temporary unavailability state.
 - MVP-4 still does **not** add broad internet search, generated meanings, or automatic lexical decisions.
 
+## Morphology Enrichment
+
+- Eligible sources can now trigger PIE-based morphology analysis directly from existing detail pages.
+- Morphology runs reuse the existing async `start job -> redirect to tracked progress` flow and appear on the existing `/jobs/[jobId]` page.
+- The frontend does **not** introduce a separate morphology workspace or navigation area.
+- Morphology appears as a lightweight enrichment layer inside the current product:
+  - source/detail pages can show a compact morphology summary
+  - word cards can surface a small `Morphology available` hint
+  - the reusable word detail drawer can show best lemma, lemma candidates, POS candidates, and morphology status when available
+- Large morphology runs stay asynchronous and use the same background progress UX as the other long-running jobs.
+
 ## What MVP-3 Adds
 
 - `Reference Sources` at `/references` so reviewers can create personal reference sources and import simple wordlists or reference documents.
@@ -95,6 +106,7 @@ Authenticated frontend for uploading Armenian historical books, tracking ingesti
   - source-aware summary metadata
   - internal evidence snippets
   - trusted external evidence that stays provider-labeled and separate
+  - morphology enrichment when it exists
   - lexicon presence / linked lexeme information
   - best reference-match metadata
   - direct navigation back to the full source or linked lexeme
@@ -104,6 +116,7 @@ Authenticated frontend for uploading Armenian historical books, tracking ingesti
 
 - Document detail pages now include `Words from this source`, which is meant to be the main review surface for extracted candidate words from a book.
 - Reference source detail pages now include `Words from this source`, so reviewers can inspect what was actually imported from that source instead of only seeing import job metadata.
+- Eligible document and reference-source detail pages can also trigger morphology analysis and show a compact morphology summary when the backend provides one.
 - Source-scoped word tables support reviewer-focused filters such as linked, unlinked, suspicious, ignored, matched, and unmatched where available.
 - This keeps the workflow centered on the source and the word evidence rather than on background runs.
 
@@ -160,6 +173,7 @@ Authenticated frontend for uploading Armenian historical books, tracking ingesti
 ## Long-Running Progress
 
 - Long-running actions now follow a `start job -> accept quickly -> redirect to tracked progress` model.
+- Morphology analysis runs follow the same pattern instead of introducing a separate progress UI.
 - `/jobs/[jobId]` and `/reference-matching/[runId]` show backend-driven progress instead of relying on a generic loading impression.
 - The frontend polls active jobs and runs every few seconds while their status is `queued` or `running`.
 - Progress copy uses backend-provided stage labels and user-facing stage messages when available.
@@ -332,6 +346,12 @@ Authorization: Bearer <supabase_access_token>
 26. Open `/words`, search for a known word, and confirm results are grouped into `Lexicon`, `Imported Books`, and `Reference Sources`.
 27. From `/words`, open `View details` and confirm the drawer shows source title, snippet, lexicon info, and reference-match info without centering the UI on raw IDs.
 28. Recheck `/dashboard`, `/documents`, `/documents/[documentId]`, and `/jobs/[jobId]` to confirm MVP-1 and MVP-2 flows still work.
+
+## Production (MVP)
+
+Deploy checklist, health probes, and **E2E acceptance criteria**: [../docs/PRODUCTION.md](../docs/PRODUCTION.md).
+
+Set `NEXT_PUBLIC_API_BASE_URL` to your production API (HTTPS).
 
 ## How To Test Failure Recovery
 

@@ -6,6 +6,21 @@ export type IngestionJobStatus = JobStatus;
 export type ExtractionMethod = "pdf_text" | "ocr";
 export type LexemeStatus = string;
 export type LexiconView = "candidates" | "linked" | "suspicious" | "ignored" | "all";
+export type LexiconGroupSortKey =
+  | "normalized_form"
+  | "occurrence_count"
+  | "page_count"
+  | "group_state"
+  | "dominant_script_type";
+export type LexiconGroupSortDirection = "asc" | "desc";
+export type DocumentWorkflowStage =
+  | "uploaded"
+  | "ingesting"
+  | "ready_for_review"
+  | "in_review"
+  | "curated_partial"
+  | "curated_complete"
+  | "failed";
 export type LexiconGroupState = "unreviewed" | "linked" | "ignored_noise";
 export type LexiconScriptType = "armenian" | "latin" | "mixed" | "digit_mixed" | "other";
 export type ReferenceStatusFilter = "matched" | "unmatched" | "all";
@@ -22,6 +37,18 @@ export type ReferenceMatchingResultTargetType = "lexicon_group" | "lexeme" | "al
 export type ReferenceMatchingRunResultsScopeFilter = "lexicon_only" | "books_only" | "any";
 export type WordSearchMode = "exact" | "normalized" | "fuzzy";
 export type WordSearchCategory = "lexicon" | "documents" | "reference_sources" | "trusted_external";
+export type MorphologySourceType = "document" | "reference_source";
+export type MorphologyLanguageStage = "classical" | "modern" | string;
+export type MorphologyProfile = "xcl_pie" | string;
+export type MorphologyAnalyzer = "pie" | string;
+export type MorphologyRunStatus =
+  | "not_analyzed"
+  | "queued"
+  | "running"
+  | "completed"
+  | "skipped"
+  | "failed"
+  | string;
 export type WordSourceType =
   | "lexicon"
   | "document"
@@ -44,6 +71,49 @@ export type OffsetPagination<T> = {
   offset: number;
 };
 
+export type MorphologySettings = {
+  language_stage: MorphologyLanguageStage | null;
+  morphology_profile: MorphologyProfile | null;
+  analyzer: MorphologyAnalyzer | null;
+};
+
+export type MorphologySummary = {
+  source_type?: MorphologySourceType | null;
+  is_eligible: boolean;
+  is_supported: boolean;
+  is_available: boolean;
+  status: MorphologyRunStatus | null;
+  analyzed_occurrence_count: number | null;
+  completed_count: number | null;
+  skipped_count: number | null;
+  failed_count: number | null;
+  distinct_lemma_count: number | null;
+};
+
+export type WordMorphologySummary = {
+  available: boolean;
+  status: MorphologyRunStatus | null;
+  best_lemma: string | null;
+  lemma_candidates: string[];
+  pos_candidates: string[];
+};
+
+export type MorphologyValueCount = {
+  value: string;
+  count: number;
+};
+
+export type WordMorphologyDetail = {
+  normalized_form: string | null;
+  analyzed_occurrence_count: number | null;
+  completed_count: number | null;
+  skipped_count: number | null;
+  failed_count: number | null;
+  lemma_candidates: MorphologyValueCount[];
+  pos_distribution: MorphologyValueCount[];
+  morph_feature_summaries: Record<string, MorphologyValueCount[]>;
+};
+
 export type DocumentRead = {
   id: UUID;
   user_id: UUID;
@@ -56,6 +126,11 @@ export type DocumentRead = {
   sha256: string;
   page_count: number | null;
   status: DocumentStatus;
+  language_stage?: MorphologyLanguageStage | null;
+  morphology_profile?: MorphologyProfile | null;
+  morphology_analyzer?: MorphologyAnalyzer | null;
+  morphology_settings?: MorphologySettings | null;
+  morphology_summary?: MorphologySummary | null;
   created_at: string;
   updated_at: string;
 };
@@ -169,11 +244,42 @@ export type LexiconGroupsListParams = SearchListParams & {
   linked_only?: boolean;
   document_id?: UUID;
   reference_status?: ReferenceStatusFilter;
+  sort_by?: LexiconGroupSortKey;
+  sort_dir?: LexiconGroupSortDirection;
+  include_reference_summary?: boolean;
+};
+
+export type DocumentWorkflowRead = {
+  document_id: UUID;
+  user_id: UUID;
+  stage: DocumentWorkflowStage;
+  candidate_count: number;
+  linked_count: number;
+  ignored_count: number;
+  suspicious_count: number;
+  last_job_id: UUID | null;
+  last_activity_at: string;
+  review_lexicon_path: string | null;
+};
+
+export type ReviewQueueItem = {
+  document: DocumentRead;
+  workflow: DocumentWorkflowRead;
 };
 
 export type LexemesListParams = SearchListParams & {
   reference_status?: ReferenceStatusFilter;
+  include_reference_summary?: boolean;
 };
+
+export type LexemePickerItem = {
+  id: UUID;
+  canonical_form: string;
+  canonical_normalized_form: string;
+  status: LexemeStatus;
+};
+
+export type LexemePickerListParams = SearchListParams;
 
 export type ReferenceMatchSummary = {
   source_display_name: string;
@@ -209,9 +315,13 @@ export type LexiconGroupOccurrence = {
   document_title: string;
   page_id: UUID;
   page_number: number;
+  page_image_available: boolean;
+  page_image_api_path: string | null;
   token: string;
   normalized_token: string;
   context_snippet: string;
+  context_highlight_start?: number | null;
+  context_highlight_end?: number | null;
   created_at: string;
 };
 
@@ -232,8 +342,36 @@ export type LexiconGroupDetail = {
   occurrences: LexiconGroupOccurrence[];
 };
 
-export type LexiconGroupMutationRequest = {
+export type LexiconGroupLinkRequest = {
+  lexeme_id: UUID;
   normalized_forms: string[];
+};
+
+export type LexiconGroupLinkResponse = {
+  lexeme_id: UUID;
+  lexeme_canonical_form: string;
+  normalized_forms: string[];
+  group_state: LexiconGroupState;
+};
+
+export type LexiconActionType = "create_lexeme" | "merge_into_lexeme" | "ignore" | "unignore";
+
+export type LexiconActionRequest = {
+  action: LexiconActionType;
+  normalized_forms: string[];
+  lexeme_id?: UUID;
+  canonical_form?: string;
+  status?: LexemeStatus;
+  notes?: string;
+  reviewer_note?: string;
+};
+
+export type LexiconActionResponse = {
+  action: LexiconActionType;
+  normalized_forms: string[];
+  group_state?: LexiconGroupState;
+  lexeme_id?: UUID;
+  lexeme_canonical_form?: string;
 };
 
 export type LexemeCreateRequest = {
@@ -307,6 +445,11 @@ export type ReferenceSourceSummary = {
   source_type: string;
   language: string | null;
   entry_count: number | null;
+  language_stage?: MorphologyLanguageStage | null;
+  morphology_profile?: MorphologyProfile | null;
+  morphology_analyzer?: MorphologyAnalyzer | null;
+  morphology_settings?: MorphologySettings | null;
+  morphology_summary?: MorphologySummary | null;
   created_at: string;
   updated_at: string;
   most_recent_import: ReferenceSourceImportSummary | null;
@@ -332,6 +475,32 @@ export type ReferenceSourceImportResponse = {
   source?: ReferenceSourceSummary | ReferenceSourceDetail | null;
   message?: string | null;
   resource_summary?: JobResourceSummary | null;
+};
+
+export type StartMorphologyRunRequest = {
+  document_id?: UUID | string;
+  reference_source_id?: UUID | string;
+  analyzer?: MorphologyAnalyzer | null;
+};
+
+export type StartMorphologyRunResponse = {
+  job: JobRead;
+  message?: string | null;
+  resource_summary?: JobResourceSummary | null;
+};
+
+export type UpdateMorphologySettingsRequest = {
+  language_stage?: MorphologyLanguageStage | null;
+  morphology_profile?: MorphologyProfile | null;
+  run_morphology?: boolean;
+  analyzer?: MorphologyAnalyzer | null;
+};
+
+export type UpdateMorphologySettingsResponse = {
+  job?: JobRead | null;
+  message?: string | null;
+  resource_summary?: JobResourceSummary | null;
+  settings?: MorphologySettings | null;
 };
 
 export type ReferenceMatch = {
@@ -498,6 +667,7 @@ export type WordEvidenceSummary = {
   match_status: Exclude<ReferenceStatusFilter, "all"> | null;
   linked_lexeme: WordLexemeSummary | null;
   reference_match: WordReferenceMatchSummary | null;
+  morphology: WordMorphologySummary | null;
 };
 
 export type WordInternalEvidenceItem = {

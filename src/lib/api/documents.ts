@@ -8,26 +8,122 @@ import type {
   DocumentUploadResponse,
   JobRead,
   ListParams,
+  MorphologyAnalyzer,
+  MorphologyLanguageStage,
+  MorphologyProfile,
   OffsetPagination,
 } from "@/lib/types/api";
 import { BATCH_PAGE_SIZE } from "@/lib/utils/constants";
+import {
+  normalizeMorphologySettings,
+  normalizeMorphologySummary,
+} from "@/lib/utils/morphology";
 
-export async function listDocuments(params: ListParams = {}) {
-  return apiFetch<OffsetPagination<DocumentRead>>("/api/v1/documents", {
+type RawDocumentRead = DocumentRead & {
+  morphology_settings?: unknown;
+  language_stage?: string | null;
+  morphology_profile?: string | null;
+  morphology_analyzer?: string | null;
+  analyzer?: string | null;
+  morphology_summary?: unknown;
+  morphology?: unknown;
+  pie_morphology?: unknown;
+  morphology_eligible?: boolean | null;
+  pie_morphology_eligible?: boolean | null;
+  morphology_supported?: boolean | null;
+  supports_morphology?: boolean | null;
+  morphology_available?: boolean | null;
+  morphology_status?: string | null;
+  analyzed_occurrence_count?: number | null;
+  completed_count?: number | null;
+  skipped_count?: number | null;
+  failed_count?: number | null;
+  distinct_lemma_count?: number | null;
+};
+
+function normalizeDocument(document: RawDocumentRead): DocumentRead {
+  const morphologySettings =
+    normalizeMorphologySettings(document.morphology_settings) ??
+    normalizeMorphologySettings(document);
+
+  return {
+    ...document,
+    language_stage: document.language_stage ?? morphologySettings?.language_stage ?? null,
+    morphology_profile: document.morphology_profile ?? morphologySettings?.morphology_profile ?? null,
+    morphology_analyzer:
+      document.morphology_analyzer ?? document.analyzer ?? morphologySettings?.analyzer ?? null,
+    morphology_settings: morphologySettings,
+    morphology_summary:
+      normalizeMorphologySummary(document.morphology_summary, "document") ??
+      normalizeMorphologySummary(document.morphology, "document") ??
+      normalizeMorphologySummary(document.pie_morphology, "document") ??
+      normalizeMorphologySummary(
+        {
+          is_eligible: document.morphology_eligible ?? document.pie_morphology_eligible,
+          is_supported: document.morphology_supported ?? document.supports_morphology,
+          is_available: document.morphology_available,
+          status: document.morphology_status,
+          analyzed_occurrence_count: document.analyzed_occurrence_count,
+          completed_count: document.completed_count,
+          skipped_count: document.skipped_count,
+          failed_count: document.failed_count,
+          distinct_lemma_count: document.distinct_lemma_count,
+        },
+        "document",
+      ),
+  };
+}
+
+export async function listDocuments(params: ListParams & { include_workspace_summary?: boolean } = {}) {
+  const response = await apiFetch<OffsetPagination<RawDocumentRead>>("/api/v1/documents", {
     searchParams: {
       limit: params.limit ?? 20,
+      offset: params.offset ?? 0,
+      include_workspace_summary: params.include_workspace_summary,
+    },
+  });
+
+  return {
+    ...response,
+    items: response.items.map((document) => normalizeDocument(document)),
+  };
+}
+
+export type DocumentOptionRead = {
+  id: string;
+  title: string;
+  original_filename: string;
+};
+
+export type DocumentStatusStats = {
+  total: number;
+  completed: number;
+  processing: number;
+  queued: number;
+  failed: number;
+};
+
+export async function getDocumentStats() {
+  return apiFetch<DocumentStatusStats>("/api/v1/documents/stats");
+}
+
+export async function listDocumentOptions(params: ListParams & { search?: string } = {}) {
+  return apiFetch<OffsetPagination<DocumentOptionRead>>("/api/v1/documents/options", {
+    searchParams: {
+      search: params.search,
+      limit: params.limit ?? BATCH_PAGE_SIZE,
       offset: params.offset ?? 0,
     },
   });
 }
 
-export async function listAllDocuments() {
-  const items: DocumentRead[] = [];
+export async function listAllDocumentOptions() {
+  const items: DocumentOptionRead[] = [];
   let offset = 0;
   let total = Number.POSITIVE_INFINITY;
 
   while (items.length < total) {
-    const page = await listDocuments({ limit: BATCH_PAGE_SIZE, offset });
+    const page = await listDocumentOptions({ limit: BATCH_PAGE_SIZE, offset });
     items.push(...page.items);
     total = page.total;
     offset += page.limit;
@@ -41,7 +137,7 @@ export async function listAllDocuments() {
 }
 
 export async function getDocument(documentId: string) {
-  return apiFetch<DocumentRead>(`/api/v1/documents/${documentId}`);
+  return normalizeDocument(await apiFetch<RawDocumentRead>(`/api/v1/documents/${documentId}`));
 }
 
 async function listDocumentPagesPage(documentId: string, params: ListParams = {}) {
@@ -87,12 +183,30 @@ function normalizeDocumentUploadResponse(response: RawDocumentUploadResponse): D
   };
 }
 
-export async function startDocumentUpload(input: { file: File; title?: string }) {
+export async function startDocumentUpload(input: {
+  file: File;
+  title?: string;
+  language_stage?: MorphologyLanguageStage | null;
+  morphology_profile?: MorphologyProfile | null;
+  analyzer?: MorphologyAnalyzer | null;
+}) {
   const formData = new FormData();
   formData.set("file", input.file);
 
   if (input.title?.trim()) {
     formData.set("title", input.title.trim());
+  }
+
+  if (input.language_stage?.trim()) {
+    formData.set("language_stage", input.language_stage.trim());
+  }
+
+  if (input.morphology_profile?.trim()) {
+    formData.set("morphology_profile", input.morphology_profile.trim());
+  }
+
+  if (input.analyzer?.trim()) {
+    formData.set("analyzer", input.analyzer.trim());
   }
 
   const response = normalizeDocumentUploadResponse(

@@ -6,7 +6,7 @@ import { AuthGuard } from "@/components/auth/auth-guard";
 import { JobProgressCard } from "@/components/jobs/job-progress-card";
 import { AppShell } from "@/components/layout/app-shell";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useJob, useJobEvents, useRetryJobStart } from "@/lib/hooks/use-job";
+import { useJobProgress, useRetryJobStart } from "@/lib/hooks/use-job";
 import { useStartAndRedirect } from "@/lib/hooks/use-start-and-redirect";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { ROUTES } from "@/lib/utils/constants";
@@ -15,8 +15,7 @@ export default function JobDetailPage() {
   const params = useParams<{ locale: string; jobId: string }>();
   const { handleAcceptedStart, handleStartError } = useStartAndRedirect();
   const { messages } = useI18n();
-  const jobQuery = useJob(params.jobId);
-  const jobEventsQuery = useJobEvents(params.jobId, jobQuery.data?.status, jobQuery.isSuccess);
+  const { jobQuery, eventsQuery: jobEventsQuery } = useJobProgress(params.jobId);
   const retryMutation = useRetryJobStart();
 
   async function handleRetry() {

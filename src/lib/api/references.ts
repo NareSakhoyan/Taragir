@@ -11,6 +11,10 @@ import type {
   ReferenceSourceDetail,
   ReferenceSourceSummary,
 } from "@/lib/types/api";
+import {
+  normalizeMorphologySettings,
+  normalizeMorphologySummary,
+} from "@/lib/utils/morphology";
 
 type ListEnvelope<T> = T[] | { items: T[] };
 type ReferenceSourceImportSummaryLike = ReferenceSourceImportSummary | null | undefined;
@@ -18,6 +22,25 @@ type RawReferenceSource = ReferenceSourceDetail & {
   latest_import?: ReferenceSourceImportSummaryLike;
   last_import?: ReferenceSourceImportSummaryLike;
   recent_import?: ReferenceSourceImportSummaryLike;
+  morphology_settings?: unknown;
+  language_stage?: string | null;
+  morphology_profile?: string | null;
+  morphology_analyzer?: string | null;
+  analyzer?: string | null;
+  morphology_summary?: unknown;
+  morphology?: unknown;
+  pie_morphology?: unknown;
+  morphology_eligible?: boolean | null;
+  pie_morphology_eligible?: boolean | null;
+  morphology_supported?: boolean | null;
+  supports_morphology?: boolean | null;
+  morphology_available?: boolean | null;
+  morphology_status?: string | null;
+  analyzed_occurrence_count?: number | null;
+  completed_count?: number | null;
+  skipped_count?: number | null;
+  failed_count?: number | null;
+  distinct_lemma_count?: number | null;
 };
 
 function unwrapList<T>(payload: ListEnvelope<T>) {
@@ -54,10 +77,36 @@ function normalizeImportSummary(
 
 function normalizeReferenceSource<T extends Partial<RawReferenceSource>>(source: T) {
   const mostRecentImport = normalizeImportSummary(source);
+  const morphologySettings =
+    normalizeMorphologySettings(source.morphology_settings) ??
+    normalizeMorphologySettings(source);
 
   return {
     ...source,
     most_recent_import: mostRecentImport,
+    language_stage: source.language_stage ?? morphologySettings?.language_stage ?? null,
+    morphology_profile: source.morphology_profile ?? morphologySettings?.morphology_profile ?? null,
+    morphology_analyzer:
+      source.morphology_analyzer ?? source.analyzer ?? morphologySettings?.analyzer ?? null,
+    morphology_settings: morphologySettings,
+    morphology_summary:
+      normalizeMorphologySummary(source.morphology_summary, "reference_source") ??
+      normalizeMorphologySummary(source.morphology, "reference_source") ??
+      normalizeMorphologySummary(source.pie_morphology, "reference_source") ??
+      normalizeMorphologySummary(
+        {
+          is_eligible: source.morphology_eligible ?? source.pie_morphology_eligible,
+          is_supported: source.morphology_supported ?? source.supports_morphology,
+          is_available: source.morphology_available,
+          status: source.morphology_status,
+          analyzed_occurrence_count: source.analyzed_occurrence_count,
+          completed_count: source.completed_count,
+          skipped_count: source.skipped_count,
+          failed_count: source.failed_count,
+          distinct_lemma_count: source.distinct_lemma_count,
+        },
+        "reference_source",
+      ),
     last_import_method: source.last_import_method ?? mostRecentImport?.import_method ?? null,
     last_import_warning: source.last_import_warning ?? mostRecentImport?.warning_message ?? null,
     last_imported_at: source.last_imported_at ?? mostRecentImport?.created_at ?? null,

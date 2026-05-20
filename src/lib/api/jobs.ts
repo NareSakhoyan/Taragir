@@ -83,9 +83,16 @@ export async function retryJobStart(jobId: string) {
 
 export const retryJob = retryJobStart;
 
+type JobEventsEnvelope = StageEvent[] | { items: StageEvent[] };
+
+function unwrapJobEvents(payload: JobEventsEnvelope) {
+  return Array.isArray(payload) ? payload : payload.items;
+}
+
 export async function getJobEvents(jobId: string) {
   try {
-    return await apiFetch<StageEvent[]>(`/api/v1/jobs/${jobId}/events`);
+    const response = await apiFetch<JobEventsEnvelope>(`/api/v1/jobs/${jobId}/events`);
+    return unwrapJobEvents(response);
   } catch (error) {
     if (error instanceof ApiError && (error.status === 404 || error.status === 405)) {
       return [];

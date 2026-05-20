@@ -24,10 +24,12 @@ export default function LexemesPage() {
   const [pageSize, setPageSize] = useState(LEXEMES_PAGE_SIZE);
   const [sortKey, setSortKey] = useState<LexemeSortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection | null>(null);
+  const [showReferenceSummary, setShowReferenceSummary] = useState(false);
   const offset = (currentPage - 1) * pageSize;
   const lexemesQuery = useLexemes({
     search: search || undefined,
     reference_status: referenceStatus,
+    include_reference_summary: showReferenceSummary,
     limit: pageSize,
     offset,
   });
@@ -115,23 +117,34 @@ export default function LexemesPage() {
               </form>
             </div>
 
-            <div className="mt-5 max-w-xs">
-              <label className="mb-2 block text-sm font-medium" htmlFor="lexemes-reference-filter">
-                {messages.lexemes.referenceLabel}
-              </label>
-              <select
-                className="flex h-11 w-full rounded-md border border-input bg-background/80 px-4 py-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
-                id="lexemes-reference-filter"
-                onChange={(event) => {
-                  setCurrentPage(1);
-                  setReferenceStatus(event.target.value as ReferenceStatusFilter);
-                }}
-                value={referenceStatus}
+            <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="max-w-xs flex-1">
+                <label className="mb-2 block text-sm font-medium" htmlFor="lexemes-reference-filter">
+                  {messages.lexemes.referenceLabel}
+                </label>
+                <select
+                  className="flex h-11 w-full rounded-md border border-input bg-background/80 px-4 py-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+                  id="lexemes-reference-filter"
+                  onChange={(event) => {
+                    setCurrentPage(1);
+                    setReferenceStatus(event.target.value as ReferenceStatusFilter);
+                  }}
+                  value={referenceStatus}
+                >
+                  <option value="all">{messages.reference.filters.all}</option>
+                  <option value="matched">{messages.reference.filters.matched}</option>
+                  <option value="unmatched">{messages.reference.filters.unmatched}</option>
+                </select>
+              </div>
+              <Button
+                onClick={() => setShowReferenceSummary((current) => !current)}
+                type="button"
+                variant="outline"
               >
-                <option value="all">{messages.reference.filters.all}</option>
-                <option value="matched">{messages.reference.filters.matched}</option>
-                <option value="unmatched">{messages.reference.filters.unmatched}</option>
-              </select>
+                {showReferenceSummary
+                  ? messages.lexemes.hideReferenceSummary
+                  : messages.lexemes.showReferenceSummary}
+              </Button>
             </div>
           </section>
 
@@ -146,6 +159,7 @@ export default function LexemesPage() {
               <LexemesTable
                 lexemes={sortedLexemes}
                 onSort={changeSort}
+                showReferenceSummary={showReferenceSummary}
                 sortDirection={sortDirection}
                 sortKey={sortKey}
               />

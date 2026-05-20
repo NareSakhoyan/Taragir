@@ -3,7 +3,9 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getJob, getJobEvents, listJobs, retryJobStart } from "@/lib/api/jobs";
+import { useActiveJobsStreamEnabled } from "@/lib/hooks/use-active-jobs-stream";
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
+import { shouldStreamJob, useJobStream } from "@/lib/hooks/use-job-stream";
 import { documentKeys } from "@/lib/hooks/use-documents";
 import { singleDocumentKeys } from "@/lib/hooks/use-document";
 import type { ListParams } from "@/lib/types/api";
@@ -19,6 +21,7 @@ export const jobKeys = {
 
 export function useJobs(params: ListParams) {
   const { isLoading, session } = useAuthSession();
+  const activeJobsStreamEnabled = useActiveJobsStreamEnabled();
   const isAuthReady = !isLoading;
   const hasSession = Boolean(session);
 
@@ -27,7 +30,7 @@ export function useJobs(params: ListParams) {
     queryFn: () => listJobs(params),
     enabled: isAuthReady && hasSession,
     refetchInterval(query) {
-      if (!isAuthReady || !hasSession) {
+      if (!isAuthReady || !hasSession || activeJobsStreamEnabled) {
         return false;
       }
 
@@ -40,17 +43,22 @@ export function useJobs(params: ListParams) {
   });
 }
 
-export function useJob(jobId: string) {
+type JobQueryOptions = {
+  disablePolling?: boolean;
+};
+
+export function useJob(jobId: string, options?: JobQueryOptions) {
   const { isLoading, session } = useAuthSession();
   const isAuthReady = !isLoading;
   const hasSession = Boolean(session);
+  const disablePolling = options?.disablePolling ?? false;
 
   return useQuery({
     queryKey: jobKeys.detail(jobId),
     queryFn: () => getJob(jobId),
     enabled: Boolean(jobId) && isAuthReady && hasSession,
     refetchInterval(query) {
-      if (!isAuthReady || !hasSession) {
+      if (!isAuthReady || !hasSession || disablePolling) {
         return false;
       }
 
@@ -62,6 +70,7 @@ export function useJob(jobId: string) {
 
 export function useTrackedJobs(jobIds: string[]) {
   const { isLoading, session } = useAuthSession();
+  const activeJobsStreamEnabled = useActiveJobsStreamEnabled();
   const isAuthReady = !isLoading;
   const hasSession = Boolean(session);
 
@@ -71,7 +80,7 @@ export function useTrackedJobs(jobIds: string[]) {
       queryFn: () => getJob(jobId),
       enabled: Boolean(jobId) && isAuthReady && hasSession,
       refetchInterval(query: { state: { data?: { status?: string | null } } }) {
-        if (!isAuthReady || !hasSession) {
+        if (!isAuthReady || !hasSession || activeJobsStreamEnabled) {
           return false;
         }
 
@@ -105,10 +114,16 @@ export function useRetryJobStart() {
 
 export const useRetryJob = useRetryJobStart;
 
-export function useJobEvents(jobId: string, status?: string | null, enabled = true) {
+export function useJobEvents(
+  jobId: string,
+  status?: string | null,
+  enabled = true,
+  options?: JobQueryOptions,
+) {
   const { isLoading, session } = useAuthSession();
   const isAuthReady = !isLoading;
   const hasSession = Boolean(session);
+  const disablePolling = options?.disablePolling ?? false;
   const canFetchEvents = Boolean(jobId) && enabled && isAuthReady && hasSession;
 
   return useQuery({
@@ -116,8 +131,25 @@ export function useJobEvents(jobId: string, status?: string | null, enabled = tr
     queryFn: () => getJobEvents(jobId),
     enabled: canFetchEvents,
     refetchInterval:
-      canFetchEvents && status && JOB_ACTIVE_STATUSES.has(status)
+      canFetchEvents && !disablePolling && status && JOB_ACTIVE_STATUSES.has(status)
         ? JOB_POLL_INTERVAL_MS
         : false,
   });
 }
+
+export function useJobProgress(jobId: string, enabled = true) {
+  const streamEnabled = enabled && Boolean(jobId);
+  useJobStream(jobId, { enabled: streamEnabled });
+  const jobQuery = useJob(jobId, { disablePolling: streamEnabled });
+  const eventsQuery = useJobEvents(jobId, jobQuery.data?.status, streamEnabled, {
+    disablePolling: streamEnabled,
+  });
+
+  return {
+    jobQuery,
+    eventsQuery,
+    streamActive: streamEnabled && shouldStreamJob(jobQuery.data),
+  };
+}
+
+export { shouldStreamJob, useJobStream };

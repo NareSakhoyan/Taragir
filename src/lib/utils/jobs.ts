@@ -63,6 +63,18 @@ function normalizeJobKind(jobKind?: string | null) {
   return jobKind?.trim().toLowerCase().replace(/[\s-]+/g, "_") ?? "";
 }
 
+export function isMorphologyJobKind(jobKind?: string | null) {
+  switch (normalizeJobKind(jobKind)) {
+    case "morphology":
+    case "morphology_analysis":
+    case "pie_morphology":
+    case "pie_morphology_analysis":
+      return true;
+    default:
+      return false;
+  }
+}
+
 function normalizeResourceType(resourceType?: string | null) {
   return resourceType?.trim().toLowerCase().replace(/[\s-]+/g, "_") ?? "";
 }
@@ -83,6 +95,11 @@ export function formatJobKind(jobKind: string | null | undefined, messages: JobM
     case "reference_matching_run":
     case "reference_matching":
       return messages.jobKinds.referenceMatching;
+    case "morphology":
+    case "morphology_analysis":
+    case "pie_morphology":
+    case "pie_morphology_analysis":
+      return messages.jobKinds.morphologyAnalysis;
     default:
       return jobKind?.trim() ? humanizeSnakeCase(jobKind) : messages.jobKinds.background;
   }
@@ -120,16 +137,41 @@ function resolveResourceLabel(resourceType: string | null | undefined, messages:
   }
 }
 
+export function isIngestionJobKind(jobKind?: string | null) {
+  switch (normalizeJobKind(jobKind)) {
+    case "document_ingestion":
+    case "document_upload":
+    case "ingestion":
+    case "retry_ingestion":
+    case "document_retry":
+    case "ingestion_retry":
+      return true;
+    default:
+      return false;
+  }
+}
+
 export function resolveJobResultAction(job: JobRead, messages: JobMessages) {
+  const documentId = job.document_id ?? (job.result_resource_type === "document" ? job.result_resource_id : null);
+
+  if (isIngestionJobKind(job.job_kind) && documentId) {
+    return {
+      href: `${ROUTES.lexicon}?document_id=${documentId}&view=candidates`,
+      label: messages.reviewCandidates,
+      secondaryHref: `${ROUTES.documents}/${documentId}`,
+      secondaryLabel: messages.openDocument,
+    };
+  }
+
   const resourcePath =
     resolveResourcePath(job.result_resource_type, job.result_resource_id) ??
     resolveResourcePath(job.resource_summary?.resource_type, job.resource_summary?.id) ??
-    (job.document_id ? `${ROUTES.documents}/${job.document_id}?jobId=${job.id}` : null);
+    (documentId ? `${ROUTES.documents}/${documentId}?jobId=${job.id}` : null);
 
   const resourceType =
     job.result_resource_type ??
     job.resource_summary?.resource_type ??
-    (job.document_id ? "document" : null);
+    (documentId ? "document" : null);
 
   if (!resourcePath) {
     return null;

@@ -13,6 +13,7 @@ import { useI18n } from "@/lib/i18n/use-i18n";
 import type { LexiconGroupSummary, LexiconView } from "@/lib/types/api";
 import { cn } from "@/lib/utils/classnames";
 import { formatNumber, truncateText } from "@/lib/utils/format";
+import { highlightTermsInText } from "@/lib/utils/highlight-snippet";
 
 type LexiconGroupsTableProps = {
   groups: LexiconGroupSummary[];
@@ -26,6 +27,7 @@ type LexiconGroupsTableProps = {
   emptyTitle: string;
   emptyDescription: string;
   currentView: LexiconView;
+  showReferenceSummary?: boolean;
 };
 
 export type LexiconGroupSortKey =
@@ -120,6 +122,7 @@ export function LexiconGroupsTable({
   emptyTitle,
   emptyDescription,
   currentView,
+  showReferenceSummary = false,
 }: LexiconGroupsTableProps) {
   const { locale, messages } = useI18n();
   const showReviewerSignals = currentView === "suspicious";
@@ -209,7 +212,10 @@ export function LexiconGroupsTable({
                     <p className="font-semibold tracking-tight [overflow-wrap:anywhere]">{group.normalized_form}</p>
                     {group.sample_contexts[0] ? (
                       <p className="max-w-md text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                        {truncateText(group.sample_contexts[0], 96)}
+                        {highlightTermsInText(truncateText(group.sample_contexts[0], 96), [
+                          group.normalized_form,
+                          ...group.sample_tokens,
+                        ])}
                       </p>
                     ) : null}
                   </div>
@@ -223,13 +229,17 @@ export function LexiconGroupsTable({
                   <SampleDocuments titles={group.sample_document_titles} />
                 </TableCell>
                 <TableCell className="min-w-[14rem]">
-                  <ReferenceMatchBadge
-                    bestMatch={group.best_reference_match}
-                    compact
-                    hasMatch={group.has_reference_match}
-                    matchCount={group.reference_match_count}
-                    showUnmatched
-                  />
+                  {showReferenceSummary ? (
+                    <ReferenceMatchBadge
+                      bestMatch={group.best_reference_match}
+                      compact
+                      hasMatch={group.has_reference_match}
+                      matchCount={group.reference_match_count}
+                      showUnmatched
+                    />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">{messages.lexicon.referenceOnDetail}</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <GroupStateBadge state={group.group_state} />
@@ -313,13 +323,15 @@ export function LexiconGroupsTable({
                   <SampleTokens tokens={group.sample_tokens} />
                   <SampleDocuments titles={group.sample_document_titles} />
                   <div className="flex flex-wrap gap-2">
-                    <ReferenceMatchBadge
-                      bestMatch={group.best_reference_match}
-                      compact
-                      hasMatch={group.has_reference_match}
-                      matchCount={group.reference_match_count}
-                      showUnmatched
-                    />
+                    {showReferenceSummary ? (
+                      <ReferenceMatchBadge
+                        bestMatch={group.best_reference_match}
+                        compact
+                        hasMatch={group.has_reference_match}
+                        matchCount={group.reference_match_count}
+                        showUnmatched
+                      />
+                    ) : null}
                     <GroupStateBadge state={group.group_state} />
                     {showReviewerSignals ? (
                       <>
@@ -343,7 +355,12 @@ export function LexiconGroupsTable({
             </div>
 
             {group.sample_contexts[0] ? (
-              <p className="mt-4 text-sm text-muted-foreground [overflow-wrap:anywhere]">{truncateText(group.sample_contexts[0], 140)}</p>
+              <p className="mt-4 text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                {highlightTermsInText(truncateText(group.sample_contexts[0], 140), [
+                  group.normalized_form,
+                  ...group.sample_tokens,
+                ])}
+              </p>
             ) : null}
 
             <div className="mt-4 flex justify-end">

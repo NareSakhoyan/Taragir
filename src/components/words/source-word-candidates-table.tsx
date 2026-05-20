@@ -126,9 +126,30 @@ export function SourceWordCandidatesTable({
                 <TableRow key={item.id}>
                   <TableCell>
                     <div className="space-y-1">
-                      <p className="font-medium [overflow-wrap:anywhere]">{item.normalized_form ?? item.display_word}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium [overflow-wrap:anywhere]">{item.normalized_form ?? item.display_word}</p>
+                        {item.morphology?.available ? (
+                          <Badge className="border-violet-200 bg-violet-50 text-violet-700" variant="outline">
+                            {messages.morphology.badges.available}
+                          </Badge>
+                        ) : null}
+                      </div>
                       {sampleTokens.length ? (
                         <p className="text-xs text-muted-foreground">{sampleTokens.slice(0, 3).join(", ")}</p>
+                      ) : null}
+                      {item.morphology?.best_lemma ? (
+                        <p className="text-xs text-muted-foreground">
+                          {messages.morphology.labels.bestLemma}: {item.morphology.best_lemma}
+                        </p>
+                      ) : null}
+                      {item.morphology?.pos_candidates.length ? (
+                        <div className="flex flex-wrap gap-2">
+                          {item.morphology.pos_candidates.slice(0, 3).map((candidate) => (
+                            <Badge key={candidate} variant="outline">
+                              {candidate}
+                            </Badge>
+                          ))}
+                        </div>
                       ) : null}
                     </div>
                   </TableCell>
@@ -188,9 +209,21 @@ export function SourceWordCandidatesTable({
             <div className="rounded-md border border-border/80 bg-card/80 p-4 shadow-sm" key={item.id}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
-                  <p className="font-semibold [overflow-wrap:anywhere]">{item.normalized_form ?? item.display_word}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold [overflow-wrap:anywhere]">{item.normalized_form ?? item.display_word}</p>
+                    {item.morphology?.available ? (
+                      <Badge className="border-violet-200 bg-violet-50 text-violet-700" variant="outline">
+                        {messages.morphology.badges.available}
+                      </Badge>
+                    ) : null}
+                  </div>
                   {sampleTokens.length ? (
                     <p className="text-sm text-muted-foreground">{sampleTokens.slice(0, 3).join(", ")}</p>
+                  ) : null}
+                  {item.morphology?.best_lemma ? (
+                    <p className="text-xs text-muted-foreground">
+                      {messages.morphology.labels.bestLemma}: {item.morphology.best_lemma}
+                    </p>
                   ) : null}
                 </div>
                 <MatchStatusBadge item={item} />
@@ -222,6 +255,15 @@ export function SourceWordCandidatesTable({
                   <div className="flex flex-wrap gap-2">
                     <span>{messages.words.columns.referenceStatus}:</span>
                     <MatchStatusBadge item={item} />
+                  </div>
+                ) : null}
+                {item.morphology?.pos_candidates.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {item.morphology.pos_candidates.slice(0, 3).map((candidate) => (
+                      <Badge key={candidate} variant="outline">
+                        {candidate}
+                      </Badge>
+                    ))}
                   </div>
                 ) : null}
               </div>

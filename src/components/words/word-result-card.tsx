@@ -59,6 +59,11 @@ export function WordResultCard({ item, onViewDetails }: WordResultCardProps) {
                   {getWordMatchTypeLabel(item.match_type, messages)}
                 </Badge>
               ) : null}
+              {item.morphology?.available ? (
+                <Badge className="border-violet-200 bg-violet-50 text-violet-700" variant="outline">
+                  {messages.morphology.badges.available}
+                </Badge>
+              ) : null}
             </>
           ) : (
             <>
@@ -84,6 +89,11 @@ export function WordResultCard({ item, onViewDetails }: WordResultCardProps) {
                   ? messages.words.badges.referenceMatched
                   : messages.words.badges.referenceUnmatched}
               </Badge>
+              {item.morphology?.available ? (
+                <Badge className="border-violet-200 bg-violet-50 text-violet-700" variant="outline">
+                  {messages.morphology.badges.available}
+                </Badge>
+              ) : null}
             </>
           )}
         </div>
@@ -124,6 +134,13 @@ export function WordResultCard({ item, onViewDetails }: WordResultCardProps) {
                 .join(" · ")}
             </p>
           ) : null}
+          {item.morphology?.best_lemma ? (
+            <p className="[overflow-wrap:anywhere]">
+              <span className="font-medium text-foreground">{messages.morphology.labels.bestLemma}</span>
+              {": "}
+              {item.morphology.best_lemma}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -151,6 +168,15 @@ export function WordResultCard({ item, onViewDetails }: WordResultCardProps) {
               {": "}
               {item.linked_lexeme.canonical_form}
             </p>
+          ) : null}
+          {item.morphology?.pos_candidates.length ? (
+            <div className="flex flex-wrap gap-2">
+              {item.morphology.pos_candidates.slice(0, 3).map((candidate) => (
+                <Badge key={candidate} variant="outline">
+                  {candidate}
+                </Badge>
+              ))}
+            </div>
           ) : null}
         </div>
       </div>

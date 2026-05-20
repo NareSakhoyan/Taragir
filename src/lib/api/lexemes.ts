@@ -6,6 +6,8 @@ import type {
   LexemeCreateResponse,
   LexemeDetail,
   LexemeMergeGroupsRequest,
+  LexemePickerItem,
+  LexemePickerListParams,
   LexemeSummary,
   LexemesListParams,
   LexemeUpdateRequest,
@@ -25,7 +27,18 @@ export async function getLexemes(params: LexemesListParams = {}) {
     searchParams: {
       search: params.search,
       reference_status: params.reference_status,
+      include_reference_summary: params.include_reference_summary,
       limit: params.limit ?? LEXEMES_PAGE_SIZE,
+      offset: params.offset ?? 0,
+    },
+  });
+}
+
+export async function getLexemePicker(params: LexemePickerListParams = {}) {
+  return apiFetch<OffsetPagination<LexemePickerItem>>("/api/v1/lexemes/picker", {
+    searchParams: {
+      search: params.search,
+      limit: params.limit ?? 20,
       offset: params.offset ?? 0,
     },
   });

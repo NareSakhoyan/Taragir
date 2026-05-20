@@ -15,26 +15,36 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TableLoadingState } from "@/components/ui/table-loading-state";
 import { TablePagination } from "@/components/ui/table-pagination";
-import { useDocumentsSummary } from "@/lib/hooks/use-documents";
-import { useIgnoreLexiconGroups, useLexiconGroups, useUnignoreLexiconGroups } from "@/lib/hooks/use-lexicon-groups";
+import { useDocumentOptions } from "@/lib/hooks/use-documents";
+import { useLexiconAction, useLexiconGroups } from "@/lib/hooks/use-lexicon-groups";
 import { useLexiconGroupReferenceMatches } from "@/lib/hooks/use-references";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { toast } from "@/lib/notifications";
-import type { LexiconView, ReferenceStatusFilter } from "@/lib/types/api";
+import type { LexiconGroupSortDirection, LexiconGroupSortKey as ApiLexiconGroupSortKey, LexiconView, ReferenceStatusFilter } from "@/lib/types/api";
 import { LEXICON_GROUPS_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS } from "@/lib/utils/constants";
-import { titleFromDocument } from "@/lib/utils/format";
 
 export default function LexiconPage() {
   const searchParams = useSearchParams();
   const { locale, messages } = useI18n();
   const searchParam = searchParams.get("search") ?? "";
+  const documentIdParam = searchParams.get("document_id") ?? "";
+  const viewParam = searchParams.get("view");
   const detailParam = searchParams.get("detail");
-  const documentsQuery = useDocumentsSummary();
+  const documentsQuery = useDocumentOptions();
   const [draftSearch, setDraftSearch] = useState(searchParam);
   const [search, setSearch] = useState(searchParam);
-  const [view, setView] = useState<LexiconView>("candidates");
-  const [documentId, setDocumentId] = useState("");
+  const [view, setView] = useState<LexiconView>(
+    viewParam === "candidates" ||
+      viewParam === "linked" ||
+      viewParam === "suspicious" ||
+      viewParam === "ignored" ||
+      viewParam === "all"
+      ? viewParam
+      : "candidates",
+  );
+  const [documentId, setDocumentId] = useState(documentIdParam);
   const [referenceStatus, setReferenceStatus] = useState<ReferenceStatusFilter>("all");
+  const [showReferenceSummary, setShowReferenceSummary] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(LEXICON_GROUPS_PAGE_SIZE);
   const [sortKey, setSortKey] = useState<LexiconGroupSortKey | null>(null);
@@ -44,15 +54,22 @@ export default function LexiconPage() {
   const [referenceMatchForm, setReferenceMatchForm] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
-  const ignoreMutation = useIgnoreLexiconGroups();
-  const unignoreMutation = useUnignoreLexiconGroups();
+  const lexiconActionMutation = useLexiconAction();
   const offset = (currentPage - 1) * pageSize;
+
+  const serverSortKey: ApiLexiconGroupSortKey | undefined =
+    sortKey && sortKey !== "is_suspicious" ? (sortKey as ApiLexiconGroupSortKey) : undefined;
+  const serverSortDir: LexiconGroupSortDirection | undefined =
+    serverSortKey && sortDirection ? sortDirection : undefined;
 
   const lexiconQuery = useLexiconGroups({
     search: search || undefined,
     view,
     document_id: documentId || undefined,
     reference_status: referenceStatus,
+    sort_by: serverSortKey,
+    sort_dir: serverSortDir,
+    include_reference_summary: showReferenceSummary,
     limit: pageSize,
     offset,
   });
@@ -68,7 +85,7 @@ export default function LexiconPage() {
     () =>
       (documentsQuery.data ?? []).map((document) => ({
         id: document.id,
-        label: titleFromDocument(document),
+        label: document.title?.trim() || document.original_filename,
       })),
     [documentsQuery.data],
   );
@@ -93,7 +110,7 @@ export default function LexiconPage() {
       : view === "linked"
         ? messages.lexicon.selectedLinkedEmpty
         : messages.lexicon.selectedGroupsEmpty;
-  const isBulkMutating = ignoreMutation.isPending || unignoreMutation.isPending;
+  const isBulkMutating = lexiconActionMutation.isPending;
   const emptyDescription =
     view === "candidates"
       ? messages.lexicon.emptyStates.candidates
@@ -108,31 +125,16 @@ export default function LexiconPage() {
   const sortedGroups = useMemo(() => {
     const items = [...(lexiconQuery.data?.items ?? [])];
 
-    if (!sortKey || !sortDirection) {
+    if (sortKey !== "is_suspicious" || !sortDirection) {
       return items;
     }
 
     const multiplier = sortDirection === "asc" ? 1 : -1;
-
-    return items.sort((left, right) => {
-      switch (sortKey) {
-        case "normalized_form":
-          return left.normalized_form.localeCompare(right.normalized_form, locale) * multiplier;
-        case "occurrence_count":
-          return (left.occurrence_count - right.occurrence_count) * multiplier;
-        case "page_count":
-          return (left.page_count - right.page_count) * multiplier;
-        case "group_state":
-          return left.group_state.localeCompare(right.group_state, locale) * multiplier;
-        case "dominant_script_type":
-          return left.dominant_script_type.localeCompare(right.dominant_script_type, locale) * multiplier;
-        case "is_suspicious":
-          return (Number(left.is_suspicious) - Number(right.is_suspicious)) * multiplier;
-      }
-    });
-  }, [lexiconQuery.data?.items, locale, sortDirection, sortKey]);
+    return items.sort((left, right) => (Number(left.is_suspicious) - Number(right.is_suspicious)) * multiplier);
+  }, [lexiconQuery.data?.items, sortDirection, sortKey]);
 
   function changeSort(nextKey: LexiconGroupSortKey) {
+    setCurrentPage(1);
     if (sortKey !== nextKey) {
       setSortKey(nextKey);
       setSortDirection("asc");
@@ -164,7 +166,7 @@ export default function LexiconPage() {
     }
 
     try {
-      await ignoreMutation.mutateAsync({ normalized_forms: selectedForms });
+      await lexiconActionMutation.mutateAsync({ action: "ignore", normalized_forms: selectedForms });
       toast.success(messages.lexicon.actions.ignoreSuccessTitle, {
         description: messages.lexicon.actions.ignoreSuccessDescription
           .replace("{count}", selectedForms.length.toLocaleString(locale))
@@ -184,7 +186,7 @@ export default function LexiconPage() {
     }
 
     try {
-      await unignoreMutation.mutateAsync({ normalized_forms: selectedForms });
+      await lexiconActionMutation.mutateAsync({ action: "unignore", normalized_forms: selectedForms });
       toast.success(messages.lexicon.actions.unignoreSuccessTitle, {
         description: messages.lexicon.actions.unignoreSuccessDescription
           .replace("{count}", selectedForms.length.toLocaleString(locale))
@@ -287,6 +289,17 @@ export default function LexiconPage() {
                 <option value="unmatched">{messages.lexicon.filters.referenceLabel}: {messages.lexicon.filters.unmatchedReferenceStatuses}</option>
               </select>
             </div>
+
+            <Button
+              className="mt-3 w-full sm:w-auto"
+              onClick={() => setShowReferenceSummary((current) => !current)}
+              type="button"
+              variant="outline"
+            >
+              {showReferenceSummary
+                ? messages.lexicon.hideReferenceSummary
+                : messages.lexicon.showReferenceSummary}
+            </Button>
           </section>
 
           <section className="rounded-md border border-border/80 bg-card/80 p-5 shadow-sm">
@@ -347,6 +360,7 @@ export default function LexiconPage() {
                   onViewMatches={openReferenceMatches}
                   selectedForms={selectedForms}
                   sortDirection={sortDirection}
+                  showReferenceSummary={showReferenceSummary}
                   sortKey={sortKey}
                 />
               )}

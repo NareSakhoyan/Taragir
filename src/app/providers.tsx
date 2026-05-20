@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AppToaster } from "@/components/app-toaster";
 import { AuthSessionProvider } from "@/components/auth/auth-provider";
 import { ApiError } from "@/lib/api/client";
+import { ActiveJobsStreamProvider } from "@/lib/hooks/use-active-jobs-stream";
 
 type ProvidersProps = {
   children: React.ReactNode;
@@ -34,8 +35,10 @@ export function Providers({ children }: ProvidersProps) {
   return (
     <AuthSessionProvider>
       <QueryClientProvider client={queryClient}>
-        {children}
-        <AppToaster />
+        <ActiveJobsStreamProvider>
+          {children}
+          <AppToaster />
+        </ActiveJobsStreamProvider>
       </QueryClientProvider>
     </AuthSessionProvider>
   );

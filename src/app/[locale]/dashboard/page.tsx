@@ -6,10 +6,12 @@ import { ArrowRight, CheckCircle2, Clock3, Files } from "lucide-react";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { DocumentsTable } from "@/components/documents/documents-table";
 import { AppShell } from "@/components/layout/app-shell";
+import { ActiveJobsSection } from "@/components/dashboard/active-jobs-section";
+import { ReviewQueueSection } from "@/components/dashboard/review-queue-section";
 import { UploadForm } from "@/components/upload/upload-form";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useDocuments, useDocumentsSummary } from "@/lib/hooks/use-documents";
+import { useDocumentStats, useDocuments } from "@/lib/hooks/use-documents";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { RECENT_DOCUMENTS_LIMIT, ROUTES } from "@/lib/utils/constants";
 import { formatNumber } from "@/lib/utils/format";
@@ -41,17 +43,16 @@ function StatBlock({
 
 export default function DashboardPage() {
   const { href, locale, messages } = useI18n();
-  const summaryQuery = useDocumentsSummary();
+  const statsQuery = useDocumentStats();
   const recentDocumentsQuery = useDocuments({
     limit: RECENT_DOCUMENTS_LIMIT,
     offset: 0,
   });
 
-  const summaryDocuments = summaryQuery.data ?? [];
-  const totalDocuments = summaryDocuments.length;
-  const completedDocuments = summaryDocuments.filter((document) => document.status === "completed").length;
-  const processingDocuments = summaryDocuments.filter((document) => document.status === "processing").length;
-  const queuedDocuments = summaryDocuments.filter((document) => document.status === "queued").length;
+  const totalDocuments = statsQuery.data?.total ?? 0;
+  const completedDocuments = statsQuery.data?.completed ?? 0;
+  const processingDocuments = statsQuery.data?.processing ?? 0;
+  const queuedDocuments = statsQuery.data?.queued ?? 0;
 
   return (
     <AuthGuard>
@@ -69,7 +70,7 @@ export default function DashboardPage() {
       >
         <div className="flex flex-col">
           <section className="grid border-b border-border/80 lg:grid-cols-3 lg:divide-x lg:divide-border/70">
-            {summaryQuery.isLoading ? (
+            {statsQuery.isLoading ? (
               <>
                 <Skeleton className="h-36 border-b border-border/70 lg:border-b-0" />
                 <Skeleton className="h-36 border-b border-border/70 lg:border-b-0" />
@@ -105,6 +106,14 @@ export default function DashboardPage() {
                 </div>
               </>
             )}
+          </section>
+
+          <section className="py-10">
+            <ActiveJobsSection />
+          </section>
+
+          <section className="border-t border-border/80 py-10">
+            <ReviewQueueSection />
           </section>
 
           <section className="grid gap-0 py-10 xl:grid-cols-[1.35fr_1fr] xl:divide-x xl:divide-border/70">

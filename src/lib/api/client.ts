@@ -149,3 +149,34 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}, a
 
   return (await response.text()) as T;
 }
+
+export async function apiFetchBlob(path: string, options: ApiFetchOptions = {}, attempt = 0): Promise<Blob> {
+  const { searchParams, skipUnauthorizedRedirect = false, headers, body, ...rest } = options;
+  const token = await getAccessToken(attempt > 0);
+  const requestHeaders = new Headers(headers);
+
+  if (token) {
+    requestHeaders.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(buildUrl(path, searchParams), {
+    ...rest,
+    headers: requestHeaders,
+    body,
+  });
+
+  if (response.status === 401) {
+    if (attempt === 0) {
+      return apiFetchBlob(path, options, 1);
+    }
+
+    return handleUnauthorized(skipUnauthorizedRedirect);
+  }
+
+  if (!response.ok) {
+    const { message, payload } = await parseError(response);
+    throw new ApiError(message, response.status, payload);
+  }
+
+  return response.blob();
+}

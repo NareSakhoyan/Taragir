@@ -16,6 +16,7 @@ import { useI18n } from "@/lib/i18n/use-i18n";
 import { toast } from "@/lib/notifications";
 import type { LexemeDetail } from "@/lib/types/api";
 import { formatDate, formatNumber } from "@/lib/utils/format";
+import { highlightTermsInText } from "@/lib/utils/highlight-snippet";
 
 const editLexemeSchema = z.object({
   canonicalForm: z.string().trim().min(1),
@@ -202,7 +203,11 @@ export function LexemeDetailCard({ lexeme }: LexemeDetailCardProps) {
               {lexeme.sample_contexts.length ? (
                 lexeme.sample_contexts.map((context, index) => (
                   <div className="rounded-md border border-border/70 bg-card px-4 py-3 text-sm leading-7" key={`${lexeme.id}-context-${index}`}>
-                    {context}
+                    {highlightTermsInText(context, [
+                      lexeme.canonical_form,
+                      lexeme.canonical_normalized_form,
+                      ...lexeme.normalized_forms,
+                    ])}
                   </div>
                 ))
               ) : (

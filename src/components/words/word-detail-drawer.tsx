@@ -14,6 +14,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useWordMorphology } from "@/lib/hooks/use-morphology";
 import { useWordCheck, useWordEvidence } from "@/lib/hooks/use-words";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import type {
@@ -22,6 +23,10 @@ import type {
   WordTrustedExternalEvidenceItem,
 } from "@/lib/types/api";
 import { formatReferenceImportMethod, isOcrReferenceImportMethod } from "@/lib/utils/format";
+import {
+  formatMorphologyStatus,
+  getMorphologyEmptyLabel,
+} from "@/lib/utils/morphology";
 import {
   getWordLexemeHref,
   getWordMatchTypeClassName,
@@ -116,6 +121,46 @@ function DetailSection({
   );
 }
 
+function MorphologyMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: number | null;
+}) {
+  return (
+    <div className="rounded-md border border-border/70 bg-background/70 p-3">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="mt-2 font-semibold">{value ?? "—"}</p>
+    </div>
+  );
+}
+
+function MorphologyDistribution({
+  title,
+  items,
+}: {
+  title: string;
+  items: { value: string; count: number }[];
+}) {
+  if (!items.length) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="font-medium text-foreground">{title}</p>
+      <div className="flex flex-wrap gap-2">
+        {items.map((item) => (
+          <Badge key={`${title}:${item.value}`} variant="outline">
+            {item.value} · {item.count}
+          </Badge>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function buildFallbackInternalEvidenceItems(word: WordEvidenceSummary | null | undefined) {
   if (
     !word ||
@@ -183,10 +228,22 @@ export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerP
     effectiveWord?.normalized_form ?? effectiveWord?.display_word ?? "",
     open && Boolean(effectiveWord),
   );
+  const morphologyQuery = useWordMorphology(
+    {
+      id: word ? String(word.id) : null,
+      sourceType: word?.source_type ?? null,
+      sourceId: word?.source_id ? String(word.source_id) : null,
+      normalizedForm: word?.normalized_form ?? null,
+      q: word?.display_word ?? null,
+    },
+    open && Boolean(word),
+  );
   const sourceHref = effectiveWord ? getWordSearchResultHref(effectiveWord) : null;
   const lexemeHref = effectiveWord ? getWordLexemeHref(effectiveWord) : null;
   const externalSourceLink = effectiveWord ? isWordResultExternalLink(effectiveWord) : false;
   const isTrustedExternal = effectiveWord ? isTrustedExternalWord(effectiveWord) : false;
+  const morphologySummary = effectiveWord?.morphology ?? null;
+  const morphologyDetail = morphologyQuery.data;
   const snippetHighlightTerms = effectiveWord
     ? [effectiveWord.display_word, effectiveWord.normalized_form ?? ""]
     : [];
@@ -485,6 +542,130 @@ export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerP
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">{messages.words.detail.noReferenceMatch}</p>
+                )}
+              </DetailSection>
+
+              <DetailSection title={messages.words.detail.morphologyTitle}>
+                {morphologyQuery.isLoading && !morphologySummary && !morphologyDetail ? (
+                  <Skeleton className="h-20 rounded-md" />
+                ) : morphologySummary || morphologyDetail ? (
+                  <div className="space-y-3 text-sm">
+                    {morphologySummary ? (
+                      <>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline">
+                            {messages.morphology.labels.available}:{" "}
+                            {morphologySummary.available ? messages.common.yes : messages.common.no}
+                          </Badge>
+                          {morphologySummary.status ? (
+                            <Badge variant="outline">
+                              {formatMorphologyStatus(morphologySummary.status, messages)}
+                            </Badge>
+                          ) : null}
+                        </div>
+
+                        <p className="[overflow-wrap:anywhere]">
+                          <span className="font-medium text-foreground">{messages.morphology.labels.bestLemma}</span>
+                          {": "}
+                          {morphologySummary.best_lemma || "—"}
+                        </p>
+
+                        {morphologySummary.lemma_candidates.length ? (
+                          <div className="space-y-2">
+                            <p className="font-medium text-foreground">{messages.morphology.labels.lemmaCandidates}</p>
+                            <div className="flex flex-wrap gap-2">
+                              {morphologySummary.lemma_candidates.map((candidate) => (
+                                <Badge key={candidate} variant="outline">
+                                  {candidate}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {morphologySummary.pos_candidates.length ? (
+                          <div className="space-y-2">
+                            <p className="font-medium text-foreground">{messages.morphology.labels.posCandidates}</p>
+                            <div className="flex flex-wrap gap-2">
+                              {morphologySummary.pos_candidates.map((candidate) => (
+                                <Badge key={candidate} variant="outline">
+                                  {candidate}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
+
+                    {morphologyDetail ? (
+                      <>
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                          <MorphologyMetric
+                            label={messages.morphology.labels.analyzedOccurrenceCount}
+                            value={morphologyDetail.analyzed_occurrence_count}
+                          />
+                          <MorphologyMetric
+                            label={messages.morphology.labels.completedCount}
+                            value={morphologyDetail.completed_count}
+                          />
+                          <MorphologyMetric
+                            label={messages.morphology.labels.skippedCount}
+                            value={morphologyDetail.skipped_count}
+                          />
+                          <MorphologyMetric
+                            label={messages.morphology.labels.failedCount}
+                            value={morphologyDetail.failed_count}
+                          />
+                        </div>
+
+                        <MorphologyDistribution
+                          items={morphologyDetail.lemma_candidates}
+                          title={messages.morphology.labels.lemmaDistribution}
+                        />
+                        <MorphologyDistribution
+                          items={morphologyDetail.pos_distribution}
+                          title={messages.morphology.labels.posDistribution}
+                        />
+
+                        {Object.entries(morphologyDetail.morph_feature_summaries).length ? (
+                          <div className="space-y-3">
+                            <p className="font-medium text-foreground">
+                              {messages.morphology.labels.morphFeatureSummaries}
+                            </p>
+                            <div className="space-y-3">
+                              {Object.entries(morphologyDetail.morph_feature_summaries).map(
+                                ([featureName, items]) => (
+                                  <MorphologyDistribution
+                                    items={items}
+                                    key={featureName}
+                                    title={featureName}
+                                  />
+                                ),
+                              )}
+                            </div>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
+
+                    {!morphologyDetail &&
+                    (!morphologySummary ||
+                      (!morphologySummary.available &&
+                        !morphologySummary.best_lemma &&
+                        !morphologySummary.lemma_candidates.length &&
+                        !morphologySummary.pos_candidates.length)) ? (
+                      <p className="text-muted-foreground">
+                        {getMorphologyEmptyLabel(morphologySummary, messages)}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : morphologyQuery.error ? (
+                  <p className="text-sm text-muted-foreground">{morphologyQuery.error.message}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {getMorphologyEmptyLabel(null, messages)}
+                  </p>
                 )}
               </DetailSection>
             </div>

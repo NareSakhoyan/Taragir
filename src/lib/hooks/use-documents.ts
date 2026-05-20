@@ -2,7 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { listAllDocuments, listDocuments, startDocumentUpload } from "@/lib/api/documents";
+import {
+  getDocumentStats,
+  listAllDocumentOptions,
+  listDocuments,
+  startDocumentUpload,
+} from "@/lib/api/documents";
 import { jobKeys } from "@/lib/hooks/use-job";
 import type { ListParams } from "@/lib/types/api";
 
@@ -11,6 +16,8 @@ export const documentKeys = {
   lists: () => [...documentKeys.all, "list"] as const,
   list: (params: ListParams) => [...documentKeys.lists(), params] as const,
   summary: () => [...documentKeys.all, "summary"] as const,
+  stats: () => [...documentKeys.all, "stats"] as const,
+  options: () => [...documentKeys.all, "options"] as const,
 };
 
 export function useDocuments(params: ListParams) {
@@ -20,11 +27,24 @@ export function useDocuments(params: ListParams) {
   });
 }
 
-export function useDocumentsSummary() {
+export function useDocumentStats() {
   return useQuery({
-    queryKey: documentKeys.summary(),
-    queryFn: listAllDocuments,
+    queryKey: documentKeys.stats(),
+    queryFn: getDocumentStats,
   });
+}
+
+export function useDocumentOptions() {
+  return useQuery({
+    queryKey: documentKeys.options(),
+    queryFn: listAllDocumentOptions,
+    staleTime: 60_000,
+  });
+}
+
+/** @deprecated Use useDocumentStats or useDocumentOptions instead. */
+export function useDocumentsSummary() {
+  return useDocumentOptions();
 }
 
 export function useStartDocumentUpload() {

@@ -11,20 +11,27 @@ import { OccurrencesTable } from "@/components/documents/occurrences-table";
 import { PageList } from "@/components/documents/page-list";
 import { PageTextViewer } from "@/components/documents/page-text-viewer";
 import { JobErrorCard } from "@/components/jobs/job-error-card";
+import { JobProgressCard } from "@/components/jobs/job-progress-card";
 import { AppShell } from "@/components/layout/app-shell";
+import { MorphologyRunAction } from "@/components/morphology/morphology-run-action";
+import { MorphologySettingsCard } from "@/components/morphology/morphology-settings-card";
+import { MorphologySummaryCard } from "@/components/morphology/morphology-summary-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDocument } from "@/lib/hooks/use-document";
 import { useDocumentOccurrences } from "@/lib/hooks/use-document-occurrences";
+import { useDocumentMorphologySummary } from "@/lib/hooks/use-morphology";
 import { useDocumentPages } from "@/lib/hooks/use-document-pages";
-import { useJob, useRetryJobStart } from "@/lib/hooks/use-job";
+import { useJobProgress, useRetryJobStart } from "@/lib/hooks/use-job";
 import { useStartAndRedirect } from "@/lib/hooks/use-start-and-redirect";
 import { useDocumentWordCandidates } from "@/lib/hooks/use-words";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { getRememberedDocumentJobLink } from "@/lib/supabase/session";
 import type { WordCandidateFilter, WordEvidenceSummary } from "@/lib/types/api";
-import { OCCURRENCES_PAGE_SIZE, ROUTES, TABLE_PAGE_SIZE_OPTIONS } from "@/lib/utils/constants";
+import { JOB_ACTIVE_STATUSES, OCCURRENCES_PAGE_SIZE, ROUTES, TABLE_PAGE_SIZE_OPTIONS } from "@/lib/utils/constants";
 import { formatBytes, formatDate, formatNumber, titleFromDocument } from "@/lib/utils/format";
+import { isMorphologyJobKind } from "@/lib/utils/jobs";
+import { hasMorphologySupport } from "@/lib/utils/morphology";
 import { SourceWordCandidatesTable } from "@/components/words/source-word-candidates-table";
 import { WordDetailDrawer } from "@/components/words/word-detail-drawer";
 import { Input } from "@/components/ui/input";
@@ -72,9 +79,17 @@ export default function DocumentDetailPage() {
     },
     documentQuery.isSuccess,
   );
+  const documentMorphologyQuery = useDocumentMorphologySummary(documentId, documentQuery.isSuccess);
   const isOccurrencesTransitioning = occurrencesQuery.isFetching && occurrencesQuery.isPlaceholderData;
   const isWordCandidatesTransitioning =
     wordCandidatesQuery.isFetching && wordCandidatesQuery.isPlaceholderData;
+  const morphologySummary =
+    documentMorphologyQuery.data ?? documentQuery.data?.morphology_summary ?? null;
+  const documentMorphologySettings = documentQuery.data?.morphology_settings ?? null;
+  const canRunMorphology =
+    hasMorphologySupport(morphologySummary) ||
+    documentMorphologySettings?.language_stage === "classical" ||
+    documentMorphologySettings?.morphology_profile === "xcl_pie";
 
   const pages = pagesQuery.data ?? [];
   const requestedPageNumber = parseDocumentEvidencePage(searchParams.get("page"));
@@ -83,10 +98,20 @@ export default function DocumentDetailPage() {
       ? pages.find((page) => page.page_number === requestedPageNumber) ?? null
       : null) ?? pages[0] ?? null;
   const knownJobId = searchParams.get("jobId") ?? getRememberedDocumentJobLink(documentId);
-  const relatedJobQuery = useJob(knownJobId ?? "");
+  const jobProgress = useJobProgress(knownJobId ?? "", Boolean(knownJobId));
+  const relatedJobQuery = jobProgress.jobQuery;
+  const jobEventsQuery = jobProgress.eventsQuery;
+  const showMorphologyJobProgress =
+    Boolean(knownJobId) && isMorphologyJobKind(relatedJobQuery.data?.job_kind);
+  const showJobProgressCard = Boolean(
+    knownJobId &&
+      relatedJobQuery.data &&
+      (showMorphologyJobProgress || JOB_ACTIVE_STATUSES.has(relatedJobQuery.data.status)),
+  );
 
   const failureJob =
-    relatedJobQuery.data?.status === "failed" || documentQuery.data?.status === "failed"
+    (relatedJobQuery.data?.status === "failed" && !isMorphologyJobKind(relatedJobQuery.data?.job_kind)) ||
+    documentQuery.data?.status === "failed"
       ? relatedJobQuery.data ?? null
       : null;
 
@@ -121,13 +146,25 @@ export default function DocumentDetailPage() {
         title={documentQuery.data ? titleFromDocument(documentQuery.data) : messages.documentDetail.fallbackTitle}
         description={messages.documentDetail.description}
         actions={
-          knownJobId ? (
-            <Link href={href(`${ROUTES.jobs}/${knownJobId}`)}>
-              <Button variant="outline">
-                {messages.documentDetail.relatedJob}
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
+          knownJobId || canRunMorphology ? (
+            <div className="flex flex-wrap gap-2">
+              {canRunMorphology ? (
+                <MorphologyRunAction
+                  enabled={canRunMorphology}
+                  sourceId={documentId}
+                  sourceType="document"
+                  summary={morphologySummary}
+                />
+              ) : null}
+              {knownJobId ? (
+                <Link href={href(`${ROUTES.jobs}/${knownJobId}`)}>
+                  <Button variant="outline">
+                    {messages.documentDetail.relatedJob}
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              ) : null}
+            </div>
           ) : null
         }
       >
@@ -174,6 +211,32 @@ export default function DocumentDetailPage() {
                     onRetry={failureJob?.can_retry ? handleRetry : undefined}
                     retryCount={failureJob?.retry_count}
                   />
+                </div>
+              ) : null}
+
+              <div className="mt-8">
+                <MorphologySettingsCard
+                  key={`${documentId}:${documentMorphologySettings?.language_stage ?? ""}:${documentMorphologySettings?.morphology_profile ?? ""}`}
+                  settings={documentMorphologySettings}
+                  sourceId={documentId}
+                  sourceType="document"
+                  summary={morphologySummary}
+                />
+              </div>
+
+              {morphologySummary ? (
+                <div className="mt-8">
+                  <MorphologySummaryCard
+                    description={messages.documentDetail.morphologyDescription}
+                    summary={morphologySummary}
+                    title={messages.documentDetail.morphologyTitle}
+                  />
+                </div>
+              ) : null}
+
+              {showJobProgressCard && relatedJobQuery.data ? (
+                <div className="mt-8">
+                  <JobProgressCard events={jobEventsQuery.data ?? []} job={relatedJobQuery.data} />
                 </div>
               ) : null}
             </section>

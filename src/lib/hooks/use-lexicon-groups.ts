@@ -2,8 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getLexiconGroups, ignoreLexiconGroups, unignoreLexiconGroups } from "@/lib/api/lexicon";
-import type { LexiconGroupMutationRequest, LexiconGroupsListParams } from "@/lib/types/api";
+import { applyLexiconAction, getLexiconGroups } from "@/lib/api/lexicon";
+import { invalidateCurationQueries } from "@/lib/hooks/invalidate-curation";
+import type { LexiconActionRequest, LexiconGroupsListParams } from "@/lib/types/api";
 
 export const lexiconKeys = {
   all: ["lexicon"] as const,
@@ -20,24 +21,13 @@ export function useLexiconGroups(params: LexiconGroupsListParams) {
   });
 }
 
-export function useIgnoreLexiconGroups() {
+export function useLexiconAction() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: LexiconGroupMutationRequest) => ignoreLexiconGroups(payload),
+    mutationFn: (payload: LexiconActionRequest) => applyLexiconAction(payload),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: lexiconKeys.all });
-    },
-  });
-}
-
-export function useUnignoreLexiconGroups() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (payload: LexiconGroupMutationRequest) => unignoreLexiconGroups(payload),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: lexiconKeys.all });
+      await invalidateCurationQueries(queryClient);
     },
   });
 }

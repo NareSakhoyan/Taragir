@@ -35,7 +35,11 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size="icon" variant="outline">
+        <Button
+          className="rounded-full border-0 bg-transparent p-0 shadow-none hover:bg-transparent focus-visible:ring-1 focus-visible:ring-sidebar-ring"
+          size="icon"
+          variant="ghost"
+        >
           <Avatar className="h-9 w-9 border-0">
             <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>

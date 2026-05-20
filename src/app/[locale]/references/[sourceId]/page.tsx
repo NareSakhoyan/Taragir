@@ -5,13 +5,18 @@ import { ArrowLeft } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import { AuthGuard } from "@/components/auth/auth-guard";
+import { JobProgressCard } from "@/components/jobs/job-progress-card";
 import { AppShell } from "@/components/layout/app-shell";
+import { MorphologyRunAction } from "@/components/morphology/morphology-run-action";
+import { MorphologySettingsCard } from "@/components/morphology/morphology-settings-card";
+import { MorphologySummaryCard } from "@/components/morphology/morphology-summary-card";
 import { ReferenceImportForm } from "@/components/references/reference-import-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useJob } from "@/lib/hooks/use-job";
+import { useJobProgress } from "@/lib/hooks/use-job";
+import { useReferenceSourceMorphologySummary } from "@/lib/hooks/use-morphology";
 import { useReferenceSource } from "@/lib/hooks/use-references";
 import { useReferenceSourceWordCandidates } from "@/lib/hooks/use-words";
 import { useI18n } from "@/lib/i18n/use-i18n";
@@ -25,6 +30,8 @@ import {
   humanizeSnakeCase,
   isOcrReferenceImportMethod,
 } from "@/lib/utils/format";
+import { isMorphologyJobKind } from "@/lib/utils/jobs";
+import { hasMorphologySupport } from "@/lib/utils/morphology";
 import { SourceWordCandidatesTable } from "@/components/words/source-word-candidates-table";
 import { WordDetailDrawer } from "@/components/words/word-detail-drawer";
 import { useState } from "react";
@@ -57,7 +64,8 @@ export default function ReferenceSourceDetailPage() {
   const sourceQuery = useReferenceSource(params.sourceId);
   const source = sourceQuery.data;
   const knownImportJobId = getRememberedReferenceSourceJobLink(params.sourceId);
-  const latestJobQuery = useJob(knownImportJobId ?? "");
+  const latestJobProgress = useJobProgress(knownImportJobId ?? "", Boolean(knownImportJobId));
+  const latestJobQuery = latestJobProgress.jobQuery;
   const wordCandidatesQuery = useReferenceSourceWordCandidates(
     params.sourceId,
     {
@@ -70,19 +78,39 @@ export default function ReferenceSourceDetailPage() {
   );
   const isWordCandidatesTransitioning =
     wordCandidatesQuery.isFetching && wordCandidatesQuery.isPlaceholderData;
+  const morphologySummaryQuery = useReferenceSourceMorphologySummary(params.sourceId, sourceQuery.isSuccess);
   const sourceView = deriveReferenceSourceDetailView(source);
+  const morphologySummary = morphologySummaryQuery.data ?? source?.morphology_summary ?? null;
+  const sourceMorphologySettings = source?.morphology_settings ?? null;
+  const canRunMorphology =
+    hasMorphologySupport(morphologySummary) ||
+    sourceMorphologySettings?.language_stage === "classical" ||
+    sourceMorphologySettings?.morphology_profile === "xcl_pie";
   const latestImport = sourceView.latestImport;
+  const showMorphologyJobProgress =
+    Boolean(knownImportJobId) && isMorphologyJobKind(latestJobQuery.data?.job_kind);
+  const jobEventsQuery = latestJobProgress.eventsQuery;
 
   return (
     <AuthGuard>
       <AppShell
         actions={
-          <Link href={href(ROUTES.references)}>
-            <Button variant="outline">
-              <ArrowLeft className="h-4 w-4" />
-              {messages.references.backToSources}
-            </Button>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            {canRunMorphology ? (
+              <MorphologyRunAction
+                enabled={canRunMorphology}
+                sourceId={params.sourceId}
+                sourceType="reference_source"
+                summary={morphologySummary}
+              />
+            ) : null}
+            <Link href={href(ROUTES.references)}>
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4" />
+                {messages.references.backToSources}
+              </Button>
+            </Link>
+          </div>
         }
         description={messages.references.detailDescription}
         title={source?.display_name ?? messages.references.title}
@@ -95,7 +123,7 @@ export default function ReferenceSourceDetailPage() {
           </div>
         ) : source ? (
           <div className="space-y-6">
-            {latestJobQuery.data ? (
+            {latestJobQuery.data && !showMorphologyJobProgress ? (
               <section className="rounded-md border border-border/80 bg-card/80 px-5 py-4 shadow-sm">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div className="space-y-1">
@@ -169,6 +197,26 @@ export default function ReferenceSourceDetailPage() {
                 </div>
               ) : null}
             </section>
+
+            <MorphologySettingsCard
+              key={`${params.sourceId}:${sourceMorphologySettings?.language_stage ?? ""}:${sourceMorphologySettings?.morphology_profile ?? ""}`}
+              settings={sourceMorphologySettings}
+              sourceId={params.sourceId}
+              sourceType="reference_source"
+              summary={morphologySummary}
+            />
+
+            {morphologySummary ? (
+              <MorphologySummaryCard
+                description={messages.references.morphologyDescription}
+                summary={morphologySummary}
+                title={messages.references.morphologyTitle}
+              />
+            ) : null}
+
+            {showMorphologyJobProgress && latestJobQuery.data ? (
+              <JobProgressCard events={jobEventsQuery.data ?? []} job={latestJobQuery.data} />
+            ) : null}
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
               <ReferenceImportForm sourceId={source.id} />

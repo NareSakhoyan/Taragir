@@ -68,13 +68,13 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const { href, messages } = useI18n();
 
   const primaryItems: NavItem[] = [
-    { href: ROUTES.words, label: messages.nav.words, icon: Type },
+    { href: ROUTES.dashboard, label: messages.nav.dashboard, icon: LayoutGrid },
     { href: ROUTES.documents, label: messages.nav.documents, icon: Files },
-    { href: ROUTES.references, label: messages.nav.references, icon: BookText },
+    { href: ROUTES.words, label: messages.nav.words, icon: Type },
     { href: ROUTES.lexicon, label: messages.nav.lexicon, icon: LibraryBig },
     { href: ROUTES.lexemes, label: messages.nav.lexemes, icon: BookMarked },
+    { href: ROUTES.references, label: messages.nav.references, icon: BookText },
     { href: ROUTES.referenceMatching, label: messages.nav.referenceMatching, icon: Search },
-    { href: ROUTES.dashboard, label: messages.nav.dashboard, icon: LayoutGrid },
     { href: ROUTES.jobs, label: messages.nav.jobs, icon: Clock3 },
   ];
 

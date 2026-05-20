@@ -6,6 +6,7 @@ import type {
   ReferenceImportMethod,
   ReferenceMatchType,
   ReferenceStatusFilter,
+  WordMorphologySummary,
   WordCandidateFilter,
   WordCandidatesParams,
   WordCheckResponse,
@@ -21,6 +22,7 @@ import type {
   WordTrustedExternalEvidenceItem,
   WordSourceType,
 } from "@/lib/types/api";
+import { normalizeWordMorphologySummary } from "@/lib/utils/morphology";
 
 type ListEnvelope<T> =
   | T[]
@@ -62,6 +64,7 @@ type RawWordReferenceMatchSummary = Partial<WordReferenceMatchSummary> & {
 };
 
 type RawWordEvidenceSummary = Partial<WordEvidenceSummary> & {
+  summary?: Record<string, unknown> | null;
   word?: string | null;
   word_form?: string | null;
   surface_form?: string | null;
@@ -115,6 +118,14 @@ type RawWordEvidenceSummary = Partial<WordEvidenceSummary> & {
   reference_match?: RawWordReferenceMatchSummary | null;
   best_reference_match?: RawWordReferenceMatchSummary | null;
   has_reference_match?: boolean | null;
+  morphology?: WordMorphologySummary | Record<string, unknown> | null;
+  morphology_summary?: WordMorphologySummary | Record<string, unknown> | null;
+  word_morphology?: WordMorphologySummary | Record<string, unknown> | null;
+  morphology_available?: boolean | null;
+  morphology_status?: string | null;
+  best_lemma?: string | null;
+  lemma_candidates?: unknown[] | null;
+  pos_candidates?: unknown[] | null;
 };
 
 type RawWordEvidenceItem = {
@@ -196,6 +207,38 @@ type RawWordCheckResponse = Partial<WordCheckResponse> & {
   trusted_external_error_message?: string | null;
   external_error_message?: string | null;
 };
+
+function asRecord(value: unknown) {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function readStringArray(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((entry) => {
+    const normalizedEntry = readString(entry);
+    return normalizedEntry ? [normalizedEntry] : [];
+  });
+}
 
 function normalizeWordSearchCategory(
   value: WordSearchCategory | string | null | undefined,
@@ -345,13 +388,22 @@ function normalizeWordEvidenceSummary(
   raw: RawWordEvidenceSummary,
   index = 0,
 ): WordEvidenceSummary {
+  const summary = asRecord(raw.summary);
   const sourceType = normalizeWordSourceType(raw.source_type, raw.category);
   const linkedLexeme =
     normalizeWordLexemeSummary(raw.linked_lexeme) ??
     normalizeWordLexemeSummary(raw.lexeme) ??
     normalizeWordLexemeSummary({
-      id: raw.linked_lexeme_id ?? raw.lexeme_id ?? undefined,
-      canonical_form: raw.linked_lexeme_canonical_form ?? raw.lexeme_canonical_form ?? undefined,
+      id:
+        raw.linked_lexeme_id ??
+        raw.lexeme_id ??
+        readString(summary?.linked_lexeme_id) ??
+        undefined,
+      canonical_form:
+        raw.linked_lexeme_canonical_form ??
+        raw.lexeme_canonical_form ??
+        readString(summary?.linked_lexeme_canonical_form) ??
+        undefined,
     });
   const referenceMatch =
     normalizeWordReferenceMatchSummary(raw.reference_match) ??
@@ -364,6 +416,18 @@ function normalizeWordEvidenceSummary(
   const category = normalizeWordSearchCategory(raw.category) ?? inferCategory(sourceType);
   const providerDisplayName = normalizeProviderDisplayName(raw);
   const matchedForm = raw.matched_form ?? raw.matched_surface_form ?? null;
+  const morphology =
+    normalizeWordMorphologySummary(raw.morphology) ??
+    normalizeWordMorphologySummary(raw.morphology_summary) ??
+    normalizeWordMorphologySummary(raw.word_morphology) ??
+    normalizeWordMorphologySummary({
+      available: raw.morphology_available ?? summary?.morphology_available,
+      status: raw.morphology_status,
+      best_lemma: raw.best_lemma ?? readString(summary?.best_lemma),
+      lemma_candidates: raw.lemma_candidates ?? readStringArray(summary?.lemma_candidates),
+      pos_candidates: raw.pos_candidates ?? readStringArray(summary?.pos_candidates),
+    });
+  const totalHits = readNumber(summary?.total_hits);
 
   return {
     id:
@@ -383,7 +447,7 @@ function normalizeWordEvidenceSummary(
     matched_form: matchedForm,
     match_type: raw.match_type ?? null,
     match_score: raw.match_score ?? null,
-    occurrence_count: raw.occurrence_count ?? null,
+    occurrence_count: raw.occurrence_count ?? totalHits ?? null,
     page_count: raw.page_count ?? null,
     sample_tokens: raw.sample_tokens ?? [],
     sample_pages: raw.sample_pages ?? [],
@@ -400,6 +464,7 @@ function normalizeWordEvidenceSummary(
       (referenceMatch?.has_match ? "matched" : raw.has_reference_match === false ? "unmatched" : null),
     linked_lexeme: linkedLexeme,
     reference_match: referenceMatch,
+    morphology,
   };
 }
 
