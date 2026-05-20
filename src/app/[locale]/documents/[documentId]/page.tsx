@@ -18,19 +18,24 @@ import { MorphologySettingsCard } from "@/components/morphology/morphology-setti
 import { MorphologySummaryCard } from "@/components/morphology/morphology-summary-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDocument } from "@/lib/hooks/use-document";
 import { useDocumentOccurrences } from "@/lib/hooks/use-document-occurrences";
 import { useDocumentMorphologySummary } from "@/lib/hooks/use-morphology";
 import { useDocumentPages } from "@/lib/hooks/use-document-pages";
 import { useJobProgress, useRetryJobStart } from "@/lib/hooks/use-job";
 import { useStartAndRedirect } from "@/lib/hooks/use-start-and-redirect";
+import {
+  useDocumentNayiriLookupSummary,
+  useStartDocumentNayiriLookupRun,
+} from "@/lib/hooks/use-document-nayiri";
 import { useDocumentWordCandidates } from "@/lib/hooks/use-words";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { getRememberedDocumentJobLink } from "@/lib/supabase/session";
 import type { WordCandidateFilter, WordEvidenceSummary } from "@/lib/types/api";
 import { JOB_ACTIVE_STATUSES, OCCURRENCES_PAGE_SIZE, ROUTES, TABLE_PAGE_SIZE_OPTIONS } from "@/lib/utils/constants";
 import { formatBytes, formatDate, formatNumber, titleFromDocument } from "@/lib/utils/format";
-import { isMorphologyJobKind } from "@/lib/utils/jobs";
+import { isMorphologyJobKind, isNayiriTrustedLookupJobKind } from "@/lib/utils/jobs";
 import { hasMorphologySupport } from "@/lib/utils/morphology";
 import { SourceWordCandidatesTable } from "@/components/words/source-word-candidates-table";
 import { WordDetailDrawer } from "@/components/words/word-detail-drawer";
@@ -62,6 +67,7 @@ export default function DocumentDetailPage() {
   const [wordPage, setWordPage] = useState(1);
   const [wordPageSize, setWordPageSize] = useState<number>(TABLE_PAGE_SIZE_OPTIONS[1] ?? 20);
   const [selectedWord, setSelectedWord] = useState<WordEvidenceSummary | null>(null);
+  const [activeTab, setActiveTab] = useState<"overview" | "pages" | "word-check" | "occurrences">("word-check");
 
   const occurrencesQuery = useDocumentOccurrences(documentId, {
     page_number: occurrenceFilters.pageNumber ? Number(occurrenceFilters.pageNumber) : undefined,
@@ -69,6 +75,8 @@ export default function DocumentDetailPage() {
     limit: OCCURRENCES_PAGE_SIZE,
     offset: occurrenceOffset,
   });
+  const nayiriSummaryQuery = useDocumentNayiriLookupSummary(documentId, documentQuery.isSuccess);
+  const startNayiriLookupMutation = useStartDocumentNayiriLookupRun(documentId);
   const wordCandidatesQuery = useDocumentWordCandidates(
     documentId,
     {
@@ -103,11 +111,21 @@ export default function DocumentDetailPage() {
   const jobEventsQuery = jobProgress.eventsQuery;
   const showMorphologyJobProgress =
     Boolean(knownJobId) && isMorphologyJobKind(relatedJobQuery.data?.job_kind);
+  const showNayiriJobProgress =
+    Boolean(knownJobId) && isNayiriTrustedLookupJobKind(relatedJobQuery.data?.job_kind);
   const showJobProgressCard = Boolean(
     knownJobId &&
       relatedJobQuery.data &&
-      (showMorphologyJobProgress || JOB_ACTIVE_STATUSES.has(relatedJobQuery.data.status)),
+      (showMorphologyJobProgress || showNayiriJobProgress || JOB_ACTIVE_STATUSES.has(relatedJobQuery.data.status)),
   );
+  const nayiriSummary = nayiriSummaryQuery.data;
+  const isNayiriLookupRunning =
+    startNayiriLookupMutation.isPending ||
+    Boolean(
+      showNayiriJobProgress &&
+        relatedJobQuery.data?.status &&
+        JOB_ACTIVE_STATUSES.has(relatedJobQuery.data.status),
+    );
 
   const failureJob =
     (relatedJobQuery.data?.status === "failed" && !isMorphologyJobKind(relatedJobQuery.data?.job_kind)) ||
@@ -214,63 +232,149 @@ export default function DocumentDetailPage() {
                 </div>
               ) : null}
 
-              <div className="mt-8">
-                <MorphologySettingsCard
-                  key={`${documentId}:${documentMorphologySettings?.language_stage ?? ""}:${documentMorphologySettings?.morphology_profile ?? ""}`}
-                  settings={documentMorphologySettings}
-                  sourceId={documentId}
-                  sourceType="document"
-                  summary={morphologySummary}
-                />
-              </div>
-
-              {morphologySummary ? (
-                <div className="mt-8">
-                  <MorphologySummaryCard
-                    description={messages.documentDetail.morphologyDescription}
-                    summary={morphologySummary}
-                    title={messages.documentDetail.morphologyTitle}
-                  />
-                </div>
-              ) : null}
-
-              {showJobProgressCard && relatedJobQuery.data ? (
-                <div className="mt-8">
-                  <JobProgressCard events={jobEventsQuery.data ?? []} job={relatedJobQuery.data} />
-                </div>
-              ) : null}
             </section>
           ) : null}
 
-          <section className="grid gap-0 border-b border-border/80 py-10 xl:grid-cols-[22rem_minmax(0,1fr)] xl:divide-x xl:divide-border/70">
-            <div className="min-w-0 pb-10 xl:pb-0 xl:pr-10">
-              <header className="mb-6 border-b border-border/70 pb-6">
-                <h3 className="text-lg font-semibold tracking-tight">{messages.documentDetail.pagesTitle}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{messages.documentDetail.pagesDescription}</p>
-              </header>
-              {pagesQuery.isLoading ? (
-                <Skeleton className="h-[24rem]" />
-              ) : (
-                <PageList
-                  pages={pages}
-                  selectedPageId={selectedPage?.id ?? null}
-                  onSelectPage={(page) => handleSelectPage(page.page_number)}
-                />
-              )}
-            </div>
-
-            <div className="min-w-0 border-t border-border/70 pt-10 xl:border-t-0 xl:pl-10 xl:pt-0">
-              <PageTextViewer page={selectedPage} />
-            </div>
-          </section>
-
           <section className="border-b border-border/80 py-10">
-            <div className="space-y-1 border-b border-border/70 pb-5">
-              <h3 className="text-lg font-semibold tracking-tight">{messages.documentDetail.wordsTitle}</h3>
-              <p className="text-sm text-muted-foreground">{messages.documentDetail.wordsDescription}</p>
+            <Tabs
+              onValueChange={(value) => setActiveTab(value as "overview" | "pages" | "word-check" | "occurrences")}
+              value={activeTab}
+            >
+              <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-2 rounded-xl bg-muted/60 p-2 md:grid-cols-4">
+                <TabsTrigger value="overview">{messages.documentDetail.tabs.overview}</TabsTrigger>
+                <TabsTrigger value="pages">{messages.documentDetail.tabs.pages}</TabsTrigger>
+                <TabsTrigger value="word-check">{messages.documentDetail.tabs.wordCheck}</TabsTrigger>
+                <TabsTrigger value="occurrences">{messages.documentDetail.tabs.occurrences}</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview">
+                <div className="space-y-6">
+                  <MorphologySettingsCard
+                    key={`${documentId}:${documentMorphologySettings?.language_stage ?? ""}:${documentMorphologySettings?.morphology_profile ?? ""}`}
+                    settings={documentMorphologySettings}
+                    sourceId={documentId}
+                    sourceType="document"
+                    summary={morphologySummary}
+                  />
+                  {morphologySummary ? (
+                    <MorphologySummaryCard
+                      description={messages.documentDetail.morphologyDescription}
+                      summary={morphologySummary}
+                      title={messages.documentDetail.morphologyTitle}
+                    />
+                  ) : null}
+                  {showJobProgressCard && relatedJobQuery.data ? (
+                    <JobProgressCard events={jobEventsQuery.data ?? []} job={relatedJobQuery.data} />
+                  ) : null}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="pages">
+                <section className="grid gap-0 border-b border-border/80 py-2 xl:grid-cols-[22rem_minmax(0,1fr)] xl:divide-x xl:divide-border/70">
+                  <div className="min-w-0 pb-10 xl:pb-0 xl:pr-10">
+                    <header className="mb-6 border-b border-border/70 pb-6">
+                      <h3 className="text-lg font-semibold tracking-tight">{messages.documentDetail.pagesTitle}</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">{messages.documentDetail.pagesDescription}</p>
+                    </header>
+                    {pagesQuery.isLoading ? (
+                      <Skeleton className="h-[24rem]" />
+                    ) : (
+                      <PageList
+                        pages={pages}
+                        selectedPageId={selectedPage?.id ?? null}
+                        onSelectPage={(page) => handleSelectPage(page.page_number)}
+                      />
+                    )}
+                  </div>
+
+                  <div className="min-w-0 border-t border-border/70 pt-10 xl:border-t-0 xl:pl-10 xl:pt-0">
+                    <PageTextViewer page={selectedPage} />
+                  </div>
+                </section>
+                {!pagesQuery.isLoading && !(pagesQuery.data?.length ?? 0) ? (
+                  <div className="mt-10 flex items-start gap-3 rounded-md border border-dashed border-border/80 bg-muted/10 px-6 py-5 text-sm text-muted-foreground shadow-sm">
+                    <FileStack className="mt-0.5 h-4 w-4 shrink-0" />
+                    {messages.documentDetail.pagesPending}
+                  </div>
+                ) : null}
+              </TabsContent>
+
+              <TabsContent value="word-check">
+                <div className="space-y-1 border-b border-border/70 pb-5">
+                  <h3 className="text-lg font-semibold tracking-tight">{messages.documentDetail.wordsTitle}</h3>
+                  <p className="text-sm text-muted-foreground">{messages.documentDetail.wordsDescription}</p>
+                </div>
+
+                <div className="mt-6 rounded-md border border-border/80 bg-muted/10 p-5 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <h4 className="font-semibold tracking-tight">{messages.words.nayiri.title}</h4>
+                  <p className="text-sm text-muted-foreground">{messages.words.nayiri.description}</p>
+                </div>
+                <Button
+                  disabled={isNayiriLookupRunning || nayiriSummary?.unavailable_count === nayiriSummary?.total_forms}
+                  onClick={() => startNayiriLookupMutation.mutate()}
+                  type="button"
+                  variant="default"
+                >
+                  {isNayiriLookupRunning ? messages.words.nayiri.running : messages.words.nayiri.runCheck}
+                </Button>
+              </div>
+
+              {nayiriSummaryQuery.isLoading ? <Skeleton className="mt-4 h-16" /> : null}
+
+              {nayiriSummary ? (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-md border border-sky-200/80 bg-sky-50/70 px-4 py-3">
+                    <p className="text-sm text-muted-foreground">{messages.words.nayiri.foundInNayiri}</p>
+                    <p className="mt-1 text-2xl font-semibold text-sky-900">
+                      {formatNumber(nayiriSummary.found_count, locale)}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border/80 bg-background px-4 py-3">
+                    <p className="text-sm text-muted-foreground">{messages.words.nayiri.notFound}</p>
+                    <p className="mt-1 text-2xl font-semibold">
+                      {formatNumber(nayiriSummary.not_found_count, locale)}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-dashed border-border/80 bg-background px-4 py-3">
+                    <p className="text-sm text-muted-foreground">{messages.words.nayiri.unchecked}</p>
+                    <p className="mt-1 text-2xl font-semibold">
+                      {formatNumber(nayiriSummary.unchecked_count, locale)}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-amber-200/80 bg-amber-50/60 px-4 py-3">
+                    <p className="text-sm text-muted-foreground">{messages.words.nayiri.unavailable}</p>
+                    <p className="mt-1 text-2xl font-semibold text-amber-900">
+                      {formatNumber(nayiriSummary.unavailable_count, locale)}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {nayiriSummary && nayiriSummary.found_count > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button onClick={() => setWordFilter("matched")} type="button" variant="outline">
+                    {messages.words.filters.matched}
+                  </Button>
+                </div>
+              ) : null}
+
+              {nayiriSummary && nayiriSummary.unchecked_count > 0 ? (
+                <p className="mt-4 text-sm text-muted-foreground">
+                  {messages.words.nayiri.calloutUnchecked.replace(
+                    "{count}",
+                    formatNumber(nayiriSummary.unchecked_count, locale),
+                  )}
+                </p>
+              ) : null}
+
+              {nayiriSummary && nayiriSummary.unavailable_count > 0 && nayiriSummary.found_count === 0 ? (
+                <p className="mt-2 text-sm text-amber-800">{messages.words.nayiri.calloutUnavailable}</p>
+              ) : null}
             </div>
 
-            <div className="mt-4 grid gap-3 lg:grid-cols-[14rem_minmax(0,1fr)_auto]">
+                <div className="mt-8 grid gap-3 lg:grid-cols-[14rem_minmax(0,1fr)_auto]">
               <select
                 className="flex h-11 w-full rounded-md border border-input bg-background/80 px-4 py-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
                 onChange={(event) => {
@@ -307,7 +411,7 @@ export default function DocumentDetailPage() {
               </form>
             </div>
 
-            <div className="mt-6">
+                <div className="mt-6">
               <SourceWordCandidatesTable
                 currentPage={wordPage}
                 data={wordCandidatesQuery.data}
@@ -326,31 +430,28 @@ export default function DocumentDetailPage() {
                 variant="document"
               />
             </div>
+              </TabsContent>
+
+              <TabsContent value="occurrences">
+                <OccurrencesTable
+                  data={occurrencesQuery.data}
+                  errorMessage={occurrencesQuery.error?.message}
+                  filters={occurrenceFilters}
+                  isFetching={isOccurrencesTransitioning}
+                  isLoading={occurrencesQuery.isLoading || isOccurrencesTransitioning}
+                  onApplyFilters={(filters) => {
+                    setOccurrenceFilters(filters);
+                    setOccurrenceOffset(0);
+                  }}
+                  onPageChange={setOccurrenceOffset}
+                  onResetFilters={() => {
+                    setOccurrenceFilters({ pageNumber: "", normalizedToken: "" });
+                    setOccurrenceOffset(0);
+                  }}
+                />
+              </TabsContent>
+            </Tabs>
           </section>
-
-          <OccurrencesTable
-            data={occurrencesQuery.data}
-            errorMessage={occurrencesQuery.error?.message}
-            filters={occurrenceFilters}
-            isFetching={isOccurrencesTransitioning}
-            isLoading={occurrencesQuery.isLoading || isOccurrencesTransitioning}
-            onApplyFilters={(filters) => {
-              setOccurrenceFilters(filters);
-              setOccurrenceOffset(0);
-            }}
-            onPageChange={setOccurrenceOffset}
-            onResetFilters={() => {
-              setOccurrenceFilters({ pageNumber: "", normalizedToken: "" });
-              setOccurrenceOffset(0);
-            }}
-          />
-
-          {!pagesQuery.isLoading && !(pagesQuery.data?.length ?? 0) ? (
-            <div className="mt-10 flex items-start gap-3 rounded-md border border-dashed border-border/80 bg-muted/10 px-6 py-5 text-sm text-muted-foreground shadow-sm">
-              <FileStack className="mt-0.5 h-4 w-4 shrink-0" />
-              {messages.documentDetail.pagesPending}
-            </div>
-          ) : null}
 
           <WordDetailDrawer
             onOpenChange={(open) => {

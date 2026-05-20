@@ -64,6 +64,27 @@ export type WordCandidateFilter =
   | "matched"
   | "unmatched";
 
+export type DocumentTrustedExternalStatus = "found" | "not_found" | "unchecked" | "unavailable";
+export type DocumentTrustedExternalCanonicalizationStatus =
+  | "direct_match"
+  | "canonicalized_by_nayiri"
+  | "morphology_assisted"
+  | "unresolved";
+
+export type DocumentNayiriLookupSummary = {
+  found_count: number;
+  not_found_count: number;
+  unchecked_count: number;
+  unavailable_count: number;
+  total_forms: number;
+};
+
+export type DocumentNayiriLookupRunStartResponse = {
+  message: string;
+  run_id: string;
+  job_id: string;
+};
+
 export type OffsetPagination<T> = {
   items: T[];
   total: number;
@@ -668,6 +689,15 @@ export type WordEvidenceSummary = {
   linked_lexeme: WordLexemeSummary | null;
   reference_match: WordReferenceMatchSummary | null;
   morphology: WordMorphologySummary | null;
+  trusted_external_status?: DocumentTrustedExternalStatus | null;
+  trusted_external_provider_display_name?: string | null;
+  trusted_external_match_count?: number | null;
+  trusted_external_matched_form?: string | null;
+  trusted_external_source_title?: string | null;
+  trusted_external_reference_link?: string | null;
+  trusted_external_snippet?: string | null;
+  trusted_external_canonicalization_status?: DocumentTrustedExternalCanonicalizationStatus | null;
+  has_reference_match?: boolean | null;
 };
 
 export type WordInternalEvidenceItem = {

@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { useI18n } from "@/lib/i18n/use-i18n";
-import type { OffsetPagination, WordEvidenceSummary } from "@/lib/types/api";
+import type { DocumentTrustedExternalStatus, OffsetPagination, WordEvidenceSummary } from "@/lib/types/api";
+import { isWordResultExternalLink } from "@/lib/utils/words";
 import { TABLE_PAGE_SIZE_OPTIONS } from "@/lib/utils/constants";
 import { getWordLexemeHref } from "@/lib/utils/words";
 
@@ -28,21 +29,67 @@ type SourceWordCandidatesTableProps = {
 
 function MatchStatusBadge({ item }: { item: WordEvidenceSummary }) {
   const { messages } = useI18n();
+  const isMatched = item.has_reference_match ?? item.match_status === "matched";
 
   return (
     <Badge
       className={
-        item.match_status === "matched"
+        isMatched
           ? "border-emerald-200 bg-emerald-50 text-emerald-700"
           : "border-border/80 bg-muted/20 text-muted-foreground"
       }
       variant="outline"
     >
-      {item.match_status === "matched"
-        ? messages.words.badges.referenceMatched
-        : messages.words.badges.referenceUnmatched}
+      {isMatched ? messages.words.badges.referenceMatched : messages.words.badges.referenceUnmatched}
     </Badge>
   );
+}
+
+function NayiriStatusBadge({ status }: { status: DocumentTrustedExternalStatus | null | undefined }) {
+  const { messages } = useI18n();
+
+  switch (status) {
+    case "found":
+      return (
+        <Badge className="border-sky-200 bg-sky-50 text-sky-800" variant="outline">
+          {messages.words.badges.nayiriFound}
+        </Badge>
+      );
+    case "not_found":
+      return (
+        <Badge className="border-border/80 bg-muted/20 text-muted-foreground" variant="outline">
+          {messages.words.badges.nayiriNotFound}
+        </Badge>
+      );
+    case "unavailable":
+      return (
+        <Badge className="border-amber-200 bg-amber-50 text-amber-800" variant="outline">
+          {messages.words.badges.nayiriUnavailable}
+        </Badge>
+      );
+    default:
+      return (
+        <Badge className="border-dashed border-border/80 bg-background text-muted-foreground" variant="outline">
+          {messages.words.badges.nayiriUnchecked}
+        </Badge>
+      );
+  }
+}
+
+function resolveNayiriCanonicalizationLabel(
+  status: WordEvidenceSummary["trusted_external_canonicalization_status"],
+  messages: ReturnType<typeof useI18n>["messages"],
+) {
+  if (status === "direct_match") {
+    return messages.words.nayiri.canonicalization.directMatch;
+  }
+  if (status === "canonicalized_by_nayiri") {
+    return messages.words.nayiri.canonicalization.canonicalized;
+  }
+  if (status === "morphology_assisted") {
+    return messages.words.nayiri.canonicalization.morphologyAssisted;
+  }
+  return messages.words.nayiri.canonicalization.unresolved;
 }
 
 export function SourceWordCandidatesTable({
@@ -64,7 +111,9 @@ export function SourceWordCandidatesTable({
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const hasLinkedLexeme = variant === "reference_source" && items.some((item) => Boolean(item.linked_lexeme));
-  const hasReferenceStatus = variant === "reference_source" && items.some((item) => Boolean(item.match_status));
+  const hasReferenceStatus =
+    variant === "reference_source" && items.some((item) => Boolean(item.match_status || item.has_reference_match));
+  const showNayiriColumn = variant === "document";
 
   if (isLoading) {
     return (
@@ -113,6 +162,7 @@ export function SourceWordCandidatesTable({
               {variant === "document" || hasReferenceStatus ? (
                 <TableHead>{messages.words.columns.referenceStatus}</TableHead>
               ) : null}
+              {showNayiriColumn ? <TableHead>{messages.words.columns.nayiriStatus}</TableHead> : null}
               <TableHead className="text-right">{messages.words.columns.actions}</TableHead>
             </TableRow>
           </TableHeader>
@@ -187,6 +237,45 @@ export function SourceWordCandidatesTable({
                       <MatchStatusBadge item={item} />
                     </TableCell>
                   ) : null}
+                  {showNayiriColumn ? (
+                    <TableCell>
+                      <div className="space-y-2">
+                        <NayiriStatusBadge status={item.trusted_external_status} />
+                        {item.trusted_external_status === "found" ? (
+                          <div className="space-y-1 text-xs text-muted-foreground">
+                            {item.trusted_external_matched_form ? (
+                              <p className="[overflow-wrap:anywhere]">
+                                {messages.words.nayiri.matchedForm}: {item.trusted_external_matched_form}
+                              </p>
+                            ) : null}
+                            <p className="[overflow-wrap:anywhere]">
+                              {resolveNayiriCanonicalizationLabel(
+                                item.trusted_external_canonicalization_status,
+                                messages,
+                              )}
+                            </p>
+                            {item.trusted_external_source_title ? (
+                              <p className="[overflow-wrap:anywhere]">{item.trusted_external_source_title}</p>
+                            ) : null}
+                            {item.trusted_external_reference_link &&
+                            isWordResultExternalLink({
+                              ...item,
+                              reference_link: item.trusted_external_reference_link,
+                            }) ? (
+                              <a
+                                className="text-primary underline-offset-4 hover:underline [overflow-wrap:anywhere]"
+                                href={item.trusted_external_reference_link}
+                                rel="noreferrer"
+                                target="_blank"
+                              >
+                                {messages.words.actions.openSource}
+                              </a>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  ) : null}
                   <TableCell className="text-right">
                     <Button onClick={() => onViewDetails(item)} size="sm" type="button" variant="outline">
                       {messages.words.actions.viewDetails}
@@ -255,6 +344,17 @@ export function SourceWordCandidatesTable({
                   <div className="flex flex-wrap gap-2">
                     <span>{messages.words.columns.referenceStatus}:</span>
                     <MatchStatusBadge item={item} />
+                  </div>
+                ) : null}
+                {showNayiriColumn ? (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span>{messages.words.columns.nayiriStatus}:</span>
+                      <NayiriStatusBadge status={item.trusted_external_status} />
+                    </div>
+                    {item.trusted_external_source_title ? (
+                      <p className="[overflow-wrap:anywhere]">{item.trusted_external_source_title}</p>
+                    ) : null}
                   </div>
                 ) : null}
                 {item.morphology?.pos_candidates.length ? (

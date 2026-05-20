@@ -63,6 +63,17 @@ function normalizeJobKind(jobKind?: string | null) {
   return jobKind?.trim().toLowerCase().replace(/[\s-]+/g, "_") ?? "";
 }
 
+export function isNayiriTrustedLookupJobKind(jobKind?: string | null) {
+  switch (normalizeJobKind(jobKind)) {
+    case "nayiri_trusted_lookup":
+    case "nayiri_lookup":
+    case "trusted_external_lookup":
+      return true;
+    default:
+      return false;
+  }
+}
+
 export function isMorphologyJobKind(jobKind?: string | null) {
   switch (normalizeJobKind(jobKind)) {
     case "morphology":
@@ -100,6 +111,10 @@ export function formatJobKind(jobKind: string | null | undefined, messages: JobM
     case "pie_morphology":
     case "pie_morphology_analysis":
       return messages.jobKinds.morphologyAnalysis;
+    case "nayiri_trusted_lookup":
+    case "nayiri_lookup":
+    case "trusted_external_lookup":
+      return messages.jobKinds.nayiriTrustedLookup;
     default:
       return jobKind?.trim() ? humanizeSnakeCase(jobKind) : messages.jobKinds.background;
   }

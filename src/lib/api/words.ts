@@ -118,6 +118,15 @@ type RawWordEvidenceSummary = Partial<WordEvidenceSummary> & {
   reference_match?: RawWordReferenceMatchSummary | null;
   best_reference_match?: RawWordReferenceMatchSummary | null;
   has_reference_match?: boolean | null;
+  trusted_external_status?: string | null;
+  trusted_external_provider_display_name?: string | null;
+  trusted_external_match_count?: number | null;
+  trusted_external_matched_form?: string | null;
+  trusted_external_source_title?: string | null;
+  trusted_external_reference_link?: string | null;
+  trusted_external_snippet?: string | null;
+  trusted_external_canonicalization_status?: string | null;
+  has_reference_match?: boolean | null;
   morphology?: WordMorphologySummary | Record<string, unknown> | null;
   morphology_summary?: WordMorphologySummary | Record<string, unknown> | null;
   word_morphology?: WordMorphologySummary | Record<string, unknown> | null;
@@ -461,7 +470,20 @@ function normalizeWordEvidenceSummary(
     is_linked: raw.is_linked ?? raw.linked ?? Boolean(linkedLexeme),
     match_status:
       raw.match_status ??
-      (referenceMatch?.has_match ? "matched" : raw.has_reference_match === false ? "unmatched" : null),
+      (referenceMatch?.has_match || raw.has_reference_match
+        ? "matched"
+        : raw.has_reference_match === false
+          ? "unmatched"
+          : null),
+    trusted_external_status: raw.trusted_external_status ?? null,
+    trusted_external_provider_display_name: raw.trusted_external_provider_display_name ?? null,
+    trusted_external_match_count: raw.trusted_external_match_count ?? null,
+    trusted_external_matched_form: raw.trusted_external_matched_form ?? null,
+    trusted_external_source_title: raw.trusted_external_source_title ?? null,
+    trusted_external_reference_link: raw.trusted_external_reference_link ?? null,
+    trusted_external_snippet: raw.trusted_external_snippet ?? null,
+    trusted_external_canonicalization_status: raw.trusted_external_canonicalization_status ?? null,
+    has_reference_match: raw.has_reference_match ?? referenceMatch?.has_match ?? null,
     linked_lexeme: linkedLexeme,
     reference_match: referenceMatch,
     morphology,

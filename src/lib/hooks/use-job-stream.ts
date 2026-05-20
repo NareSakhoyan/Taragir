@@ -10,7 +10,8 @@ import { jobKeys } from "@/lib/hooks/use-job";
 import type { JobRead, StageEvent } from "@/lib/types/api";
 import { JOB_ACTIVE_STATUSES } from "@/lib/utils/constants";
 import { isAbortError } from "@/lib/utils/abort";
-import { isIngestionJobKind } from "@/lib/utils/jobs";
+import { invalidateDocumentNayiriQueries } from "@/lib/hooks/use-document-nayiri";
+import { isIngestionJobKind, isNayiriTrustedLookupJobKind } from "@/lib/utils/jobs";
 
 type UseJobStreamOptions = {
   enabled?: boolean;
@@ -50,16 +51,18 @@ export function useJobStream(jobId: string, options?: UseJobStreamOptions) {
           void queryClient.invalidateQueries({ queryKey: jobKeys.events(jobId) });
           void queryClient.invalidateQueries({ queryKey: jobKeys.lists() });
 
-          if (
-            job &&
-            isIngestionJobKind(job.job_kind) &&
-            (job.status === "completed" || job.status === "failed")
-          ) {
-            void invalidateWorkflowQueries(queryClient, {
-              documentId:
-                job.document_id ??
-                (job.result_resource_type === "document" ? job.result_resource_id : null),
-            });
+          if (job && (job.status === "completed" || job.status === "failed")) {
+            const documentId =
+              job.document_id ??
+              (job.result_resource_type === "document" ? job.result_resource_id : null);
+
+            if (isIngestionJobKind(job.job_kind)) {
+              void invalidateWorkflowQueries(queryClient, { documentId });
+            }
+
+            if (isNayiriTrustedLookupJobKind(job.job_kind) && documentId) {
+              void invalidateDocumentNayiriQueries(queryClient, documentId);
+            }
           }
         },
         onError: () => {

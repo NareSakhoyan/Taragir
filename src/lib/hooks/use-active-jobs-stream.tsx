@@ -9,7 +9,8 @@ import { invalidateWorkflowQueries } from "@/lib/hooks/invalidate-curation";
 import { jobKeys } from "@/lib/hooks/use-job";
 import type { JobRead } from "@/lib/types/api";
 import { isAbortError } from "@/lib/utils/abort";
-import { isIngestionJobKind } from "@/lib/utils/jobs";
+import { invalidateDocumentNayiriQueries } from "@/lib/hooks/use-document-nayiri";
+import { isIngestionJobKind, isNayiriTrustedLookupJobKind } from "@/lib/utils/jobs";
 
 const ActiveJobsStreamContext = createContext(false);
 
@@ -52,7 +53,7 @@ function applyJobsToCache(queryClient: ReturnType<typeof useQueryClient>, jobs: 
   );
 }
 
-function resolveIngestionDocumentId(job: JobRead) {
+function resolveDocumentJobId(job: JobRead) {
   return job.document_id ?? (job.result_resource_type === "document" ? job.result_resource_id : null);
 }
 
@@ -62,7 +63,7 @@ function maybeInvalidateWorkflowForJob(
   previousStatus?: string | null,
 ) {
   const reachedTerminal = job.status === "completed" || job.status === "failed";
-  if (!reachedTerminal || !isIngestionJobKind(job.job_kind)) {
+  if (!reachedTerminal) {
     return;
   }
 
@@ -70,9 +71,15 @@ function maybeInvalidateWorkflowForJob(
     return;
   }
 
-  void invalidateWorkflowQueries(queryClient, {
-    documentId: resolveIngestionDocumentId(job),
-  });
+  const documentId = resolveDocumentJobId(job);
+
+  if (isIngestionJobKind(job.job_kind)) {
+    void invalidateWorkflowQueries(queryClient, { documentId });
+  }
+
+  if (isNayiriTrustedLookupJobKind(job.job_kind) && documentId) {
+    void invalidateDocumentNayiriQueries(queryClient, documentId);
+  }
 }
 
 function invalidateWorkflowForTerminalIngestionJobs(

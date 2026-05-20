@@ -30,6 +30,11 @@ type NavItem = {
   icon: LucideIcon;
 };
 
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
 function SidebarNavList({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
   const { href } = useI18n();
@@ -67,15 +72,35 @@ function SidebarNavList({ items }: { items: NavItem[] }) {
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const { href, messages } = useI18n();
 
-  const primaryItems: NavItem[] = [
-    { href: ROUTES.dashboard, label: messages.nav.dashboard, icon: LayoutGrid },
-    { href: ROUTES.documents, label: messages.nav.documents, icon: Files },
-    { href: ROUTES.words, label: messages.nav.words, icon: Type },
-    { href: ROUTES.lexicon, label: messages.nav.lexicon, icon: LibraryBig },
-    { href: ROUTES.lexemes, label: messages.nav.lexemes, icon: BookMarked },
-    { href: ROUTES.references, label: messages.nav.references, icon: BookText },
-    { href: ROUTES.referenceMatching, label: messages.nav.referenceMatching, icon: Search },
-    { href: ROUTES.jobs, label: messages.nav.jobs, icon: Clock3 },
+  const navGroups: NavGroup[] = [
+    {
+      label: messages.nav.groups.core,
+      items: [
+        { href: ROUTES.documents, label: messages.nav.documents, icon: Files },
+        { href: ROUTES.words, label: messages.nav.words, icon: Type },
+      ],
+    },
+    {
+      label: messages.nav.groups.references,
+      items: [
+        { href: ROUTES.references, label: messages.nav.references, icon: BookText },
+        { href: ROUTES.referenceMatching, label: messages.nav.referenceMatching, icon: Search },
+      ],
+    },
+    {
+      label: messages.nav.groups.curation,
+      items: [
+        { href: ROUTES.lexicon, label: messages.nav.lexicon, icon: LibraryBig },
+        { href: ROUTES.lexemes, label: messages.nav.lexemes, icon: BookMarked },
+      ],
+    },
+    {
+      label: messages.nav.groups.system,
+      items: [
+        { href: ROUTES.jobs, label: messages.nav.jobs, icon: Clock3 },
+        { href: ROUTES.dashboard, label: messages.nav.dashboard, icon: LayoutGrid },
+      ],
+    },
   ];
 
   return (
@@ -83,7 +108,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader className="gap-3 p-3">
         <Link
           className="block rounded-xl border border-sidebar-border/70 bg-sidebar-accent/50 px-3 py-3 transition-colors hover:bg-sidebar-accent/80 group-data-[collapsible=icon]:hidden"
-          href={href(ROUTES.words)}
+          href={href(ROUTES.documents)}
         >
           <div className="flex items-center gap-3 overflow-hidden">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
@@ -106,19 +131,21 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         <Link
           aria-label="Baghramyan"
           className="hidden items-center justify-center rounded-lg border border-sidebar-border/70 bg-sidebar/80 p-0 text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8"
-          href={href(ROUTES.words)}
+          href={href(ROUTES.documents)}
         >
           <BookText className="h-4 w-4" />
         </Link>
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>{messages.nav.navigation}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarNavList items={primaryItems} />
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {navGroups.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarNavList items={group.items} />
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
 
       </SidebarContent>
 

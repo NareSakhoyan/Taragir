@@ -3,6 +3,8 @@
 import { apiFetch } from "@/lib/api/client";
 import { rememberActiveJob, rememberDocumentJobLink } from "@/lib/supabase/session";
 import type {
+  DocumentNayiriLookupRunStartResponse,
+  DocumentNayiriLookupSummary,
   DocumentPageRead,
   DocumentRead,
   DocumentUploadResponse,
@@ -228,3 +230,19 @@ export async function startDocumentUpload(input: {
 }
 
 export const uploadDocument = startDocumentUpload;
+
+export async function getDocumentNayiriLookupSummary(documentId: string) {
+  return apiFetch<DocumentNayiriLookupSummary>(
+    `/api/v1/documents/${documentId}/trusted-lookups/nayiri/summary`,
+  );
+}
+
+export async function startDocumentNayiriLookupRun(documentId: string) {
+  const response = await apiFetch<DocumentNayiriLookupRunStartResponse>(
+    `/api/v1/documents/${documentId}/trusted-lookups/nayiri/run`,
+    { method: "POST" },
+  );
+  rememberActiveJob(response.job_id);
+  rememberDocumentJobLink(documentId, response.job_id);
+  return response;
+}
