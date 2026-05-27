@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertCircle, LoaderCircle } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
@@ -44,17 +44,36 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
   const [oauthPending, setOauthPending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const safeRedirectPath = useCallback(() => {
+    const fallbackPath = href(ROUTES.dashboard);
+
+    if (typeof window === "undefined" || !redirectTo) {
+      return fallbackPath;
+    }
+
+    try {
+      const url = new URL(redirectTo, window.location.origin);
+
+      if (url.origin !== window.location.origin) {
+        return fallbackPath;
+      }
+
+      return `${url.pathname}${url.search}${url.hash}`;
+    } catch {
+      return fallbackPath;
+    }
+  }, [href, redirectTo]);
+
   useEffect(() => {
     if (!isLoading && session) {
       startTransition(() => {
-        router.replace(redirectTo || href(ROUTES.dashboard));
+        router.replace(safeRedirectPath());
       });
     }
-  }, [href, isLoading, redirectTo, router, session]);
+  }, [isLoading, router, safeRedirectPath, session]);
 
   function buildOAuthRedirectUrl() {
-    const path = redirectTo || href(ROUTES.dashboard);
-    return new URL(path, window.location.origin).toString();
+    return new URL(safeRedirectPath(), window.location.origin).toString();
   }
 
   async function onGoogleSignIn() {
