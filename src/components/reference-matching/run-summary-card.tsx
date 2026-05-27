@@ -5,13 +5,15 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DocumentStatusBadge } from "@/components/documents/document-status-badge";
 import { JobProgressBar, normalizeProgressPercent } from "@/components/jobs/job-progress-bar";
+import { JobStageTimeline } from "@/components/jobs/job-stage-timeline";
 import { useI18n } from "@/lib/i18n/use-i18n";
-import type { ReferenceImportMethod, ReferenceMatchingRunDetail } from "@/lib/types/api";
+import type { ReferenceImportMethod, ReferenceMatchingRunDetail, StageEvent } from "@/lib/types/api";
 import { formatDate, formatNumber, formatReferenceImportMethod } from "@/lib/utils/format";
 import { getReferenceMatchingResultSourceHref } from "@/lib/utils/reference-matching";
 
 type RunSummaryCardProps = {
   run: ReferenceMatchingRunDetail;
+  events?: StageEvent[];
   source?: {
     id?: string | null;
     title: string | null;
@@ -76,7 +78,7 @@ function TotalsCard({
   );
 }
 
-export function RunSummaryCard({ run, source = null }: RunSummaryCardProps) {
+export function RunSummaryCard({ run, events = [], source = null }: RunSummaryCardProps) {
   const { href, locale, messages } = useI18n();
   const stageLabel = resolveStageLabel(run, messages);
   const stageMessage = resolveStageMessage(run, messages);
@@ -173,6 +175,8 @@ export function RunSummaryCard({ run, source = null }: RunSummaryCardProps) {
           label={messages.job.progress}
           percent={progressPercent}
         />
+
+        {isActive && events.length ? <JobStageTimeline events={events} /> : null}
 
         {isActive ? (
           <div className="rounded-md border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">

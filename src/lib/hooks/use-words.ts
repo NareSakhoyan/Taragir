@@ -56,6 +56,8 @@ export function useWordEvidence(
     sourceId?: string | null;
     normalizedForm?: string | null;
     q?: string | null;
+    includeExternal?: boolean;
+    providerKeys?: string[] | null;
   },
   enabled = true,
 ) {
@@ -68,6 +70,8 @@ export function useWordEvidence(
         sourceId: input.sourceId,
         normalizedForm: input.normalizedForm,
         q: input.q,
+        includeExternal: input.includeExternal,
+        providerKeys: input.providerKeys,
       }),
     enabled: enabled && Boolean(input.id),
   });
@@ -83,6 +87,8 @@ export function useDocumentWordCandidates(
     queryFn: () => getDocumentWordCandidates(documentId, params),
     enabled: enabled && Boolean(documentId),
     placeholderData: (previousData) => previousData,
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 

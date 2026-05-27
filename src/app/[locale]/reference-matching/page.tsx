@@ -1,6 +1,5 @@
 "use client";
 
-import { AuthGuard } from "@/components/auth/auth-guard";
 import { AppShell } from "@/components/layout/app-shell";
 import { MatchRunsTable } from "@/components/reference-matching/match-runs-table";
 import { StartMatchRunCard } from "@/components/reference-matching/start-match-run-card";
@@ -13,8 +12,11 @@ export default function ReferenceMatchingPage() {
   const runsQuery = useReferenceMatchingRuns();
 
   return (
-    <AuthGuard>
-      <AppShell description={messages.referenceMatching.description} title={messages.referenceMatching.title}>
+    <AppShell
+      description={messages.referenceMatching.description}
+      requiredRole="admin"
+      title={messages.referenceMatching.title}
+    >
         <div className="flex flex-col gap-8">
           <StartMatchRunCard />
 
@@ -37,7 +39,6 @@ export default function ReferenceMatchingPage() {
             </div>
           </section>
         </div>
-      </AppShell>
-    </AuthGuard>
+    </AppShell>
   );
 }

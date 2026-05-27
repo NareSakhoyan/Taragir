@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import type { WordEvidenceSummary } from "@/lib/types/api";
+import { formatPartOfSpeech } from "@/lib/utils/format";
 import {
   getWordLexemeHref,
   getWordMatchTypeClassName,
@@ -173,7 +174,7 @@ export function WordResultCard({ item, onViewDetails }: WordResultCardProps) {
             <div className="flex flex-wrap gap-2">
               {item.morphology.pos_candidates.slice(0, 3).map((candidate) => (
                 <Badge key={candidate} variant="outline">
-                  {candidate}
+                  {formatPartOfSpeech(candidate, locale)}
                 </Badge>
               ))}
             </div>

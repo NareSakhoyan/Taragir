@@ -1,11 +1,24 @@
-"use client";
+"use client"
 
-import Link from "next/link";
-import { BookMarked, BookText, Clock3, Files, LayoutGrid, LibraryBig, Search, Type, type LucideIcon } from "lucide-react";
-import { usePathname } from "next/navigation";
+import Link from "next/link"
+import {
+  BookMarkedIcon,
+  BookOpenTextIcon,
+  BookTextIcon,
+  Clock3Icon,
+  FileSearchIcon,
+  FilesIcon,
+  LayoutDashboardIcon,
+  LibraryBigIcon,
+  SearchIcon,
+  TypeIcon,
+  UploadCloudIcon,
+  type LucideIcon,
+} from "lucide-react"
+import { usePathname, useSearchParams } from "next/navigation"
 
-import { LocaleSwitcher } from "@/components/layout/locale-switcher";
-import { UserMenu } from "@/components/auth/user-menu";
+import { UserMenu } from "@/components/auth/user-menu"
+import { LocaleSwitcher } from "@/components/layout/locale-switcher"
 import {
   Sidebar,
   SidebarContent,
@@ -17,158 +30,142 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
-  useSidebar,
-} from "@/components/ui/sidebar";
-import { Badge } from "@/components/ui/badge";
-import { useI18n } from "@/lib/i18n/use-i18n";
-import { ROUTES } from "@/lib/utils/constants";
+} from "@/components/ui/sidebar"
+import { useAuthSession } from "@/lib/hooks/use-auth-session"
+import { useI18n } from "@/lib/i18n/use-i18n"
+import { ROUTES } from "@/lib/utils/constants"
 
 type NavItem = {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-};
+  title: string
+  url: string
+  icon: LucideIcon
+}
 
 type NavGroup = {
-  label: string;
-  items: NavItem[];
-};
+  title: string
+  items: NavItem[]
+}
 
-function SidebarNavList({ items }: { items: NavItem[] }) {
-  const pathname = usePathname();
-  const { href } = useI18n();
-  const { isMobile, setOpenMobile } = useSidebar();
+function NavGroupList({ group }: { group: NavGroup }) {
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const { href } = useI18n()
+  const hasDiscoveryWorkspaceItem = group.items.some((item) => item.url === `${ROUTES.documents}?workspace=discovery`)
 
   return (
-    <SidebarMenu>
-      {items.map((item) => {
-        const localizedHref = href(item.href);
-        const isActive = pathname === localizedHref || pathname.startsWith(`${localizedHref}/`);
-        const Icon = item.icon;
+    <SidebarGroup>
+      <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {group.items.map((item) => {
+            const localizedHref = href(item.url)
+            const [localizedPath, localizedQuery = ""] = localizedHref.split("?")
+            const itemSearchParams = new URLSearchParams(localizedQuery)
+            const workspace = itemSearchParams.get("workspace")
+            const documentsPath = href(ROUTES.documents)
+            const currentWorkspace = searchParams.get("workspace")
+            const isDiscoveryDetail = pathname.startsWith(`${documentsPath}/`) && pathname.endsWith("/discovery")
+            const isDocumentsItem = item.url === ROUTES.documents
+            const isWorkspaceItem = item.url.startsWith(`${ROUTES.documents}?workspace=`)
+            const isActive = workspace
+              ? (pathname === localizedPath && currentWorkspace === workspace) ||
+                (workspace === "discovery" && isDiscoveryDetail)
+              : (pathname === localizedPath || pathname.startsWith(`${localizedPath}/`)) &&
+                !(isDocumentsItem && hasDiscoveryWorkspaceItem && (currentWorkspace || isDiscoveryDetail)) &&
+                !isWorkspaceItem
+            const Icon = item.icon
 
-        return (
-          <SidebarMenuItem key={item.href}>
-            <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
-              <Link
-                href={localizedHref}
-                onClick={() => {
-                  if (isMobile) {
-                    setOpenMobile(false);
-                  }
-                }}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{item.label}</span>
+            return (
+              <SidebarMenuItem key={item.url}>
+                <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                  <Link href={localizedHref}>
+                    <Icon className="size-4" />
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )
+          })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  )
+}
+
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { href, messages } = useI18n()
+  const { isAdmin } = useAuthSession()
+
+  const navGroups: NavGroup[] = isAdmin
+    ? [
+        {
+          title: messages.nav.groups.core,
+          items: [
+            { title: messages.nav.dashboard, url: ROUTES.dashboard, icon: LayoutDashboardIcon },
+            { title: messages.nav.documents, url: ROUTES.documents, icon: FilesIcon },
+            { title: messages.nav.words, url: ROUTES.words, icon: TypeIcon },
+          ],
+        },
+        {
+          title: messages.nav.groups.references,
+          items: [
+            { title: messages.nav.references, url: ROUTES.references, icon: BookTextIcon },
+            { title: messages.nav.referenceMatching, url: ROUTES.referenceMatching, icon: SearchIcon },
+          ],
+        },
+        {
+          title: messages.nav.groups.curation,
+          items: [
+            { title: messages.nav.lexicon, url: ROUTES.lexicon, icon: LibraryBigIcon },
+            { title: messages.nav.lexemes, url: ROUTES.lexemes, icon: BookMarkedIcon },
+          ],
+        },
+        {
+          title: messages.nav.groups.system,
+          items: [
+            { title: messages.nav.jobs, url: ROUTES.jobs, icon: Clock3Icon },
+          ],
+        },
+      ]
+    : [
+        {
+          title: messages.nav.groups.core,
+          items: [
+            { title: messages.nav.documents, url: ROUTES.documents, icon: FilesIcon },
+            { title: "Discovery", url: `${ROUTES.documents}?workspace=discovery`, icon: FileSearchIcon },
+            { title: "Upload", url: `${ROUTES.documents}?workspace=upload`, icon: UploadCloudIcon },
+          ],
+        },
+      ]
+
+  return (
+    <Sidebar collapsible="offcanvas" {...props}>
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              className="data-[slot=sidebar-menu-button]:!p-1.5"
+            >
+              <Link href={href(isAdmin ? ROUTES.dashboard : ROUTES.documents)}>
+                <BookOpenTextIcon className="h-5 w-5" />
+                <span className="text-base font-semibold">Baghramyan OCR</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
-        );
-      })}
-    </SidebarMenu>
-  );
-}
-
-export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
-  const { href, messages } = useI18n();
-
-  const navGroups: NavGroup[] = [
-    {
-      label: messages.nav.groups.core,
-      items: [
-        { href: ROUTES.documents, label: messages.nav.documents, icon: Files },
-        { href: ROUTES.words, label: messages.nav.words, icon: Type },
-      ],
-    },
-    {
-      label: messages.nav.groups.references,
-      items: [
-        { href: ROUTES.references, label: messages.nav.references, icon: BookText },
-        { href: ROUTES.referenceMatching, label: messages.nav.referenceMatching, icon: Search },
-      ],
-    },
-    {
-      label: messages.nav.groups.curation,
-      items: [
-        { href: ROUTES.lexicon, label: messages.nav.lexicon, icon: LibraryBig },
-        { href: ROUTES.lexemes, label: messages.nav.lexemes, icon: BookMarked },
-      ],
-    },
-    {
-      label: messages.nav.groups.system,
-      items: [
-        { href: ROUTES.jobs, label: messages.nav.jobs, icon: Clock3 },
-        { href: ROUTES.dashboard, label: messages.nav.dashboard, icon: LayoutGrid },
-      ],
-    },
-  ];
-
-  return (
-    <Sidebar collapsible="icon" variant="inset" {...props}>
-      <SidebarHeader className="gap-3 p-3">
-        <Link
-          className="block rounded-xl border border-sidebar-border/70 bg-sidebar-accent/50 px-3 py-3 transition-colors hover:bg-sidebar-accent/80 group-data-[collapsible=icon]:hidden"
-          href={href(ROUTES.documents)}
-        >
-          <div className="flex items-center gap-3 overflow-hidden">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
-              <BookText className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-semibold">Baghramyan</p>
-                <Badge className="border-sidebar-border bg-sidebar text-sidebar-foreground" variant="outline">
-                  OCR
-                </Badge>
-              </div>
-              <p className="mt-1 text-xs leading-relaxed text-sidebar-foreground/70">
-                {messages.metadata.description}
-              </p>
-            </div>
-          </div>
-        </Link>
-
-        <Link
-          aria-label="Baghramyan"
-          className="hidden items-center justify-center rounded-lg border border-sidebar-border/70 bg-sidebar/80 p-0 text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8"
-          href={href(ROUTES.documents)}
-        >
-          <BookText className="h-4 w-4" />
-        </Link>
+        </SidebarMenu>
       </SidebarHeader>
-
       <SidebarContent>
         {navGroups.map((group) => (
-          <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarNavList items={group.items} />
-            </SidebarGroupContent>
-          </SidebarGroup>
+          <NavGroupList group={group} key={group.title} />
         ))}
-
       </SidebarContent>
-
-      <SidebarFooter className="p-3">
-        <div className="rounded-xl border border-sidebar-border/70 bg-sidebar-accent/40 p-3 group-data-[collapsible=icon]:hidden">
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-sidebar-foreground/60">
-            Reviewer Flow
-          </p>
-          <p className="mt-2 text-sm text-sidebar-foreground/80">
-            Words, evidence, and curated lexemes stay reviewable from their sources.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <LocaleSwitcher />
-            <UserMenu />
-          </div>
-        </div>
-
-        <div className="hidden justify-center group-data-[collapsible=icon]:flex">
+      <SidebarFooter>
+        <div className="flex items-center justify-between gap-2 px-2 py-1">
+          <LocaleSwitcher />
           <UserMenu />
         </div>
       </SidebarFooter>
-
-      <SidebarRail />
     </Sidebar>
-  );
+  )
 }

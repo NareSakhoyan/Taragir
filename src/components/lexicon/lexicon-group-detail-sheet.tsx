@@ -29,6 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiFetchBlob } from "@/lib/api/client";
 import { useLexiconGroup } from "@/lib/hooks/use-lexicon-group";
+import type { Locale } from "@/lib/i18n/config";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import type { LexiconGroupOccurrence } from "@/lib/types/api";
 import { ROUTES } from "@/lib/utils/constants";
@@ -88,7 +89,7 @@ function OccurrenceImageDialog({
   occurrence,
   onOpenChange,
 }: {
-  locale: string;
+  locale: Locale;
   messages: ReturnType<typeof useI18n>["messages"];
   occurrence: LexiconGroupOccurrence | null;
   onOpenChange: (open: boolean) => void;

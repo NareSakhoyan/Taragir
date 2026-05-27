@@ -1,15 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowRight, CheckCircle2, Clock3, Files } from "lucide-react";
+import { CheckCircle2, Clock3, Files } from "lucide-react";
 
-import { AuthGuard } from "@/components/auth/auth-guard";
-import { DocumentsTable } from "@/components/documents/documents-table";
-import { AppShell } from "@/components/layout/app-shell";
 import { ActiveJobsSection } from "@/components/dashboard/active-jobs-section";
 import { ReviewQueueSection } from "@/components/dashboard/review-queue-section";
+import { DocumentsTable } from "@/components/documents/documents-table";
+import { AppShell } from "@/components/layout/app-shell";
+import { HeaderActionLink } from "@/components/layout/header-actions";
 import { UploadForm } from "@/components/upload/upload-form";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDocumentStats, useDocuments } from "@/lib/hooks/use-documents";
 import { useI18n } from "@/lib/i18n/use-i18n";
@@ -55,86 +53,82 @@ export default function DashboardPage() {
   const queuedDocuments = statsQuery.data?.queued ?? 0;
 
   return (
-    <AuthGuard>
-      <AppShell
-        title={messages.dashboard.title}
-        description={messages.dashboard.description}
-        actions={
-          <Link href={href(ROUTES.documents)}>
-            <Button variant="outline">
-              {messages.dashboard.allDocuments}
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
-        }
-      >
-        <div className="flex flex-col">
-          <section className="grid border-b border-border/80 lg:grid-cols-3 lg:divide-x lg:divide-border/70">
-            {statsQuery.isLoading ? (
-              <>
-                <Skeleton className="h-36 border-b border-border/70 lg:border-b-0" />
-                <Skeleton className="h-36 border-b border-border/70 lg:border-b-0" />
-                <Skeleton className="h-36" />
-              </>
-            ) : (
-              <>
-                <div className="px-1 lg:px-8">
-                  <StatBlock
-                    description={messages.dashboard.totalDocumentsDescription}
-                    icon={Files}
-                    label={messages.dashboard.totalDocuments}
-                    value={formatNumber(totalDocuments, locale)}
-                  />
-                </div>
-                <div className="px-1 lg:px-8">
-                  <StatBlock
-                    description={messages.dashboard.completedDescription}
-                    icon={CheckCircle2}
-                    label={messages.dashboard.completed}
-                    value={formatNumber(completedDocuments, locale)}
-                  />
-                </div>
-                <div className="px-1 lg:px-8">
-                  <StatBlock
-                    description={messages.dashboard.processingDescription
-                      .replace("{processing}", formatNumber(processingDocuments, locale))
-                      .replace("{queued}", formatNumber(queuedDocuments, locale))}
-                    icon={Clock3}
-                    label={messages.dashboard.processing}
-                    value={formatNumber(processingDocuments, locale)}
-                  />
-                </div>
-              </>
-            )}
-          </section>
-
-          <section className="py-10">
-            <ActiveJobsSection />
-          </section>
-
-          <section className="border-t border-border/80 py-10">
-            <ReviewQueueSection />
-          </section>
-
-          <section className="grid gap-0 py-10 xl:grid-cols-[1.35fr_1fr] xl:divide-x xl:divide-border/70">
-            <div className="min-w-0 pb-10 xl:pb-0 xl:pr-10">
-              {recentDocumentsQuery.isLoading ? (
-                <Skeleton className="h-[26rem]" />
-              ) : (
-                <DocumentsTable
-                  description={messages.dashboard.recentDocumentsDescription}
-                  documents={recentDocumentsQuery.data?.items ?? []}
-                  emptyMessage={messages.dashboard.recentDocumentsEmpty}
-                  title={messages.dashboard.recentDocumentsTitle}
+    <AppShell
+      title={messages.dashboard.title}
+      description={messages.dashboard.description}
+      requiredRole="admin"
+      actions={
+        <HeaderActionLink direction="forward" href={href(ROUTES.documents)}>
+          {messages.dashboard.allDocuments}
+        </HeaderActionLink>
+      }
+    >
+      <div className="flex flex-col">
+        <section className="grid border-b border-border/80 lg:grid-cols-3 lg:divide-x lg:divide-border/70">
+          {statsQuery.isLoading ? (
+            <>
+              <Skeleton className="h-36 border-b border-border/70 lg:border-b-0" />
+              <Skeleton className="h-36 border-b border-border/70 lg:border-b-0" />
+              <Skeleton className="h-36" />
+            </>
+          ) : (
+            <>
+              <div className="px-1 lg:px-8">
+                <StatBlock
+                  description={messages.dashboard.totalDocumentsDescription}
+                  icon={Files}
+                  label={messages.dashboard.totalDocuments}
+                  value={formatNumber(totalDocuments, locale)}
                 />
-              )}
-            </div>
-            <div className="min-w-0 border-t border-border/70 pt-10 xl:border-t-0 xl:pt-0 xl:pl-10">
-              <UploadForm />
-            </div>
-          </section>
-        </div>
-      </AppShell>
-    </AuthGuard>
+              </div>
+              <div className="px-1 lg:px-8">
+                <StatBlock
+                  description={messages.dashboard.completedDescription}
+                  icon={CheckCircle2}
+                  label={messages.dashboard.completed}
+                  value={formatNumber(completedDocuments, locale)}
+                />
+              </div>
+              <div className="px-1 lg:px-8">
+                <StatBlock
+                  description={messages.dashboard.processingDescription
+                    .replace("{processing}", formatNumber(processingDocuments, locale))
+                    .replace("{queued}", formatNumber(queuedDocuments, locale))}
+                  icon={Clock3}
+                  label={messages.dashboard.processing}
+                  value={formatNumber(processingDocuments, locale)}
+                />
+              </div>
+            </>
+          )}
+        </section>
+
+        <section className="py-10">
+          <ActiveJobsSection />
+        </section>
+
+        <section className="border-t border-border/80 py-10">
+          <ReviewQueueSection />
+        </section>
+
+        <section className="grid gap-0 py-10 xl:grid-cols-[1.35fr_1fr] xl:divide-x xl:divide-border/70">
+          <div className="min-w-0 pb-10 xl:pb-0 xl:pr-10">
+            {recentDocumentsQuery.isLoading ? (
+              <Skeleton className="h-[26rem]" />
+            ) : (
+              <DocumentsTable
+                description={messages.dashboard.recentDocumentsDescription}
+                documents={recentDocumentsQuery.data?.items ?? []}
+                emptyMessage={messages.dashboard.recentDocumentsEmpty}
+                title={messages.dashboard.recentDocumentsTitle}
+              />
+            )}
+          </div>
+          <div className="min-w-0 border-t border-border/70 pt-10 xl:border-t-0 xl:pt-0 xl:pl-10">
+            <UploadForm />
+          </div>
+        </section>
+      </div>
+    </AppShell>
   );
 }

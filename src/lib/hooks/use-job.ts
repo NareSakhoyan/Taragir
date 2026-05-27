@@ -45,6 +45,7 @@ export function useJobs(params: ListParams) {
 
 type JobQueryOptions = {
   disablePolling?: boolean;
+  enabled?: boolean;
 };
 
 export function useJob(jobId: string, options?: JobQueryOptions) {
@@ -52,11 +53,12 @@ export function useJob(jobId: string, options?: JobQueryOptions) {
   const isAuthReady = !isLoading;
   const hasSession = Boolean(session);
   const disablePolling = options?.disablePolling ?? false;
+  const enabled = options?.enabled ?? true;
 
   return useQuery({
     queryKey: jobKeys.detail(jobId),
     queryFn: () => getJob(jobId),
-    enabled: Boolean(jobId) && isAuthReady && hasSession,
+    enabled: enabled && Boolean(jobId) && isAuthReady && hasSession,
     refetchInterval(query) {
       if (!isAuthReady || !hasSession || disablePolling) {
         return false;
@@ -117,6 +119,7 @@ export const useRetryJob = useRetryJobStart;
 export function useJobEvents(
   jobId: string,
   status?: string | null,
+  jobKind?: string | null,
   enabled = true,
   options?: JobQueryOptions,
 ) {
@@ -127,8 +130,8 @@ export function useJobEvents(
   const canFetchEvents = Boolean(jobId) && enabled && isAuthReady && hasSession;
 
   return useQuery({
-    queryKey: jobKeys.events(jobId),
-    queryFn: () => getJobEvents(jobId),
+    queryKey: [...jobKeys.events(jobId), jobKind ?? "unknown"],
+    queryFn: () => getJobEvents(jobId, jobKind),
     enabled: canFetchEvents,
     refetchInterval:
       canFetchEvents && !disablePolling && status && JOB_ACTIVE_STATUSES.has(status)
@@ -138,10 +141,10 @@ export function useJobEvents(
 }
 
 export function useJobProgress(jobId: string, enabled = true) {
-  const streamEnabled = enabled && Boolean(jobId);
+  const jobQuery = useJob(jobId, { enabled });
+  const streamEnabled = enabled && shouldStreamJob(jobQuery.data);
   useJobStream(jobId, { enabled: streamEnabled });
-  const jobQuery = useJob(jobId, { disablePolling: streamEnabled });
-  const eventsQuery = useJobEvents(jobId, jobQuery.data?.status, streamEnabled, {
+  const eventsQuery = useJobEvents(jobId, jobQuery.data?.status, jobQuery.data?.job_kind, enabled && Boolean(jobQuery.data), {
     disablePolling: streamEnabled,
   });
 

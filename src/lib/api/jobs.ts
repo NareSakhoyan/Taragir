@@ -7,7 +7,7 @@ import {
   rememberDocumentJobLink,
   rememberReferenceSourceJobLink,
 } from "@/lib/supabase/session";
-import type { JobRead, ListParams, RetryJobResponse, StageEvent } from "@/lib/types/api";
+import type { JobKind, JobRead, ListParams, RetryJobResponse, StageEvent } from "@/lib/types/api";
 import { JOB_ACTIVE_STATUSES } from "@/lib/utils/constants";
 
 type JobListEnvelope<T> = T[] | { items: T[] };
@@ -89,9 +89,13 @@ function unwrapJobEvents(payload: JobEventsEnvelope) {
   return Array.isArray(payload) ? payload : payload.items;
 }
 
-export async function getJobEvents(jobId: string) {
+export async function getJobEvents(jobId: string, jobKind?: JobKind | null) {
   try {
-    const response = await apiFetch<JobEventsEnvelope>(`/api/v1/jobs/${jobId}/events`);
+    const response = await apiFetch<JobEventsEnvelope>(`/api/v1/jobs/${jobId}/events`, {
+      searchParams: {
+        ...(jobKind ? { job_kind: jobKind } : {}),
+      },
+    });
     return unwrapJobEvents(response);
   } catch (error) {
     if (error instanceof ApiError && (error.status === 404 || error.status === 405)) {

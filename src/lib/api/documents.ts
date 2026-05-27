@@ -3,10 +3,17 @@
 import { apiFetch } from "@/lib/api/client";
 import { rememberActiveJob, rememberDocumentJobLink } from "@/lib/supabase/session";
 import type {
-  DocumentNayiriLookupRunStartResponse,
-  DocumentNayiriLookupSummary,
+  DocumentTrustedExternalLookupRunStartResponse,
+  DocumentTrustedExternalLookupSummary,
   DocumentPageRead,
   DocumentRead,
+  DiscoveryBuildStartResponse,
+  DiscoveryCandidate,
+  DiscoveryCandidateDetailResponse,
+  DiscoveryCandidateParams,
+  DiscoverySummary,
+  DiscoveryDecisionRequest,
+  DiscoveryDecisionResponse,
   DocumentUploadResponse,
   JobRead,
   ListParams,
@@ -151,27 +158,11 @@ async function listDocumentPagesPage(documentId: string, params: ListParams = {}
   });
 }
 
-export async function listDocumentPages(documentId: string) {
-  const items: DocumentPageRead[] = [];
-  let offset = 0;
-  let total = Number.POSITIVE_INFINITY;
-
-  while (items.length < total) {
-    const page = await listDocumentPagesPage(documentId, {
-      limit: BATCH_PAGE_SIZE,
-      offset,
-    });
-
-    items.push(...page.items);
-    total = page.total;
-    offset += page.limit;
-
-    if (!page.items.length) {
-      break;
-    }
-  }
-
-  return items;
+export async function listDocumentPages(documentId: string, params: ListParams = {}) {
+  return listDocumentPagesPage(documentId, {
+    limit: params.limit ?? 20,
+    offset: params.offset ?? 0,
+  });
 }
 
 type RawDocumentUploadResponse = DocumentUploadResponse | { document: DocumentRead; job: JobRead };
@@ -231,18 +222,103 @@ export async function startDocumentUpload(input: {
 
 export const uploadDocument = startDocumentUpload;
 
-export async function getDocumentNayiriLookupSummary(documentId: string) {
-  return apiFetch<DocumentNayiriLookupSummary>(
-    `/api/v1/documents/${documentId}/trusted-lookups/nayiri/summary`,
+export async function getDocumentTrustedExternalLookupSummary(documentId: string) {
+  return apiFetch<DocumentTrustedExternalLookupSummary>(
+    `/api/v1/documents/${documentId}/trusted-lookups/external/summary`,
   );
 }
 
-export async function startDocumentNayiriLookupRun(documentId: string) {
-  const response = await apiFetch<DocumentNayiriLookupRunStartResponse>(
-    `/api/v1/documents/${documentId}/trusted-lookups/nayiri/run`,
+export async function startDocumentTrustedExternalLookupRun(documentId: string) {
+  const response = await apiFetch<DocumentTrustedExternalLookupRunStartResponse>(
+    `/api/v1/documents/${documentId}/trusted-lookups/external/run`,
     { method: "POST" },
   );
   rememberActiveJob(response.job_id);
   rememberDocumentJobLink(documentId, response.job_id);
   return response;
+}
+
+
+export async function startDocumentDiscoveryBuild(documentId: string) {
+  const response = await apiFetch<DiscoveryBuildStartResponse>(
+    `/api/v1/documents/${documentId}/discovery/build`,
+    { method: "POST" },
+  );
+  rememberActiveJob(response.job_id);
+  rememberDocumentJobLink(documentId, response.job_id);
+  return response;
+}
+
+export async function startDocumentReferenceEvidenceUpdate(
+  documentId: string,
+  referenceSourceId?: string,
+) {
+  const response = await apiFetch<DiscoveryBuildStartResponse>(
+    `/api/v1/documents/${documentId}/discovery/reference-evidence/update`,
+    {
+      method: "POST",
+      searchParams: {
+        reference_source_id: referenceSourceId,
+      },
+    },
+  );
+  rememberActiveJob(response.job_id);
+  rememberDocumentJobLink(documentId, response.job_id);
+  return response;
+}
+
+export async function listDocumentDiscoveryCandidates(
+  documentId: string,
+  params: DiscoveryCandidateParams = {},
+) {
+  return apiFetch<OffsetPagination<DiscoveryCandidate>>(
+    `/api/v1/documents/${documentId}/discovery/candidates`,
+    {
+      searchParams: {
+        search: params.search,
+        candidate_type: params.candidate_type,
+        resolution_status: params.resolution_status,
+        review_status: params.review_status,
+        min_interest_score: params.min_interest_score,
+        include_suppressed: params.include_suppressed,
+        sort: params.sort,
+        limit: params.limit ?? 20,
+        offset: params.offset ?? 0,
+      },
+    },
+  );
+}
+
+export async function getDocumentDiscoverySummary(documentId: string) {
+  return apiFetch<DiscoverySummary>(`/api/v1/documents/${documentId}/discovery/summary`);
+}
+
+export async function getDocumentDiscoveryCandidate(
+  documentId: string,
+  candidateId: string,
+  options: { include_technical?: boolean; include_raw_payload?: boolean } = {},
+) {
+  return apiFetch<DiscoveryCandidateDetailResponse>(
+    `/api/v1/documents/${documentId}/discovery/candidates/${candidateId}`,
+    {
+      searchParams: {
+        include_technical: options.include_technical,
+        include_raw_payload: options.include_raw_payload,
+      },
+    },
+  );
+}
+
+export async function decideDocumentDiscoveryCandidate(
+  documentId: string,
+  candidateId: string,
+  request: DiscoveryDecisionRequest,
+) {
+  return apiFetch<DiscoveryDecisionResponse>(
+    `/api/v1/documents/${documentId}/discovery/candidates/${candidateId}/decision`,
+    {
+      method: "POST",
+      body: JSON.stringify(request),
+    },
+  );
 }

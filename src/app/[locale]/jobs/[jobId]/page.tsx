@@ -2,7 +2,6 @@
 
 import { useParams } from "next/navigation";
 
-import { AuthGuard } from "@/components/auth/auth-guard";
 import { JobProgressCard } from "@/components/jobs/job-progress-card";
 import { AppShell } from "@/components/layout/app-shell";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,8 +31,7 @@ export default function JobDetailPage() {
   }
 
   return (
-    <AuthGuard>
-      <AppShell title={messages.job.pageTitle} description={messages.job.pageDescription}>
+    <AppShell title={messages.job.pageTitle} description={messages.job.pageDescription}>
         {jobQuery.isLoading ? (
           <Skeleton className="h-[30rem]" />
         ) : jobQuery.error ? (
@@ -46,7 +44,6 @@ export default function JobDetailPage() {
             onRetry={jobQuery.data.can_retry ? handleRetry : undefined}
           />
         ) : null}
-      </AppShell>
-    </AuthGuard>
+    </AppShell>
   );
 }

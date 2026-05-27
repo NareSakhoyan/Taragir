@@ -1,5 +1,13 @@
 export type UUID = string;
 
+export type UserRole = "admin" | "linguist";
+
+export type CurrentUserProfile = {
+  id: UUID;
+  email: string | null;
+  role: UserRole;
+};
+
 export type DocumentStatus = "uploaded" | "queued" | "processing" | "completed" | "failed";
 export type JobStatus = "queued" | "running" | "completed" | "failed";
 export type IngestionJobStatus = JobStatus;
@@ -71,7 +79,7 @@ export type DocumentTrustedExternalCanonicalizationStatus =
   | "morphology_assisted"
   | "unresolved";
 
-export type DocumentNayiriLookupSummary = {
+export type DocumentTrustedExternalLookupSummary = {
   found_count: number;
   not_found_count: number;
   unchecked_count: number;
@@ -79,10 +87,161 @@ export type DocumentNayiriLookupSummary = {
   total_forms: number;
 };
 
-export type DocumentNayiriLookupRunStartResponse = {
+export type DocumentTrustedExternalLookupRunStartResponse = {
   message: string;
   run_id: string;
   job_id: string;
+};
+
+export type DiscoveryCandidate = {
+  id: UUID;
+  document_id: UUID;
+  normalized_form: string;
+  canonical_form_candidate: string | null;
+  occurrence_count: number;
+  page_count: number;
+  sample_tokens: string[];
+  sample_contexts: string[];
+  sample_pages: number[];
+  resolution_status: string;
+  candidate_type: string;
+  interest_score: number;
+  confidence_score: number | null;
+  ocr_risk_score: number | null;
+  morphology_plausibility_score: number | null;
+  definition_quality_score: number | null;
+  best_evidence_summary: Record<string, unknown>;
+  review_status: string;
+  reviewer_decision: string | null;
+  reviewer_note: string | null;
+  linked_lexeme_id: UUID | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DiscoveryBuildRunSummary = {
+  id: UUID;
+  status: string;
+  build_mode: string;
+  reference_source_id: UUID | null;
+  reference_source_import_id: UUID | null;
+  candidate_count: number;
+  shown_count: number;
+  suppressed_count: number;
+  matched_count: number;
+  unmatched_count: number;
+  progress_percent: number;
+  current_stage_code: string | null;
+  current_stage_label: string | null;
+  stage_message_user: string | null;
+  error_message_user: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DiscoverySummary = {
+  total_candidates: number;
+  visible_candidates: number;
+  suppressed_candidates: number;
+  reviewed_candidates: number;
+  unreviewed_candidates: number;
+  by_candidate_type: Record<string, number>;
+  by_resolution_status: Record<string, number>;
+  by_review_status: Record<string, number>;
+  latest_build: DiscoveryBuildRunSummary | null;
+  reference_evidence_states: DocumentReferenceEvidenceState[];
+};
+
+export type DocumentReferenceEvidenceState = {
+  document_id: UUID;
+  reference_source_id: UUID;
+  reference_source_import_id: UUID;
+  source_display_name: string;
+  status: "never_checked" | "stale" | "up_to_date" | "failed" | string;
+  last_checked_at: string | null;
+  matched_count: number;
+  unmatched_count: number;
+  error: string | null;
+};
+
+export type DiscoveryCandidateParams = ListParams & {
+  search?: string;
+  candidate_type?: string;
+  resolution_status?: string;
+  review_status?: string;
+  min_interest_score?: number;
+  include_suppressed?: boolean;
+  sort?: "interest_score_desc" | "normalized_form_asc" | string;
+};
+
+export type DiscoveryBuildStartResponse = {
+  message: string;
+  run_id: string;
+  job_id: string;
+};
+
+export type DiscoveryCandidateDetailResponse = {
+  candidate: DiscoveryCandidate;
+  why_shown: string[];
+  provider_evidence: DiscoveryEvidenceItem[];
+  occurrence_evidence: DiscoveryOccurrenceEvidence[];
+  morphology: Record<string, unknown>;
+  decision: DiscoveryDecisionState;
+};
+
+export type DiscoveryEvidenceItem = {
+  provider_key: string;
+  provider_type: string;
+  evidence_role: string;
+  role: string;
+  query_form: string;
+  matched_form: string | null;
+  result_headword: string | null;
+  lemma: string | null;
+  match_type: string;
+  validation_strength: string;
+  evidence_strength: string;
+  definition_quality: string;
+  confidence: number | null;
+  is_exact_match: boolean;
+  is_substring_match: boolean;
+  is_fuzzy_match: boolean;
+  is_canonical_match: boolean;
+  citation: string | null;
+  payload: Record<string, unknown>;
+};
+
+export type DiscoveryOccurrenceEvidence = {
+  token: string;
+  normalized_token: string;
+  page_number: number;
+  context_snippet: string;
+  char_start: number | null;
+  char_end: number | null;
+  context_highlight_start: number | null;
+  context_highlight_end: number | null;
+};
+
+export type DiscoveryDecisionState = {
+  review_status: string;
+  reviewer_decision: string | null;
+  reviewer_note: string | null;
+  linked_lexeme_id: UUID | null;
+};
+
+export type DiscoveryDecisionRequest = {
+  decision: string;
+  note?: string | null;
+  linked_lexeme_id?: UUID | null;
+  create_lexeme_canonical_form?: string | null;
+  create_lexeme_definition?: string | null;
+};
+
+export type DiscoveryDecisionResponse = {
+  candidate: DiscoveryCandidate;
+  message: string;
 };
 
 export type OffsetPagination<T> = {
@@ -152,6 +311,8 @@ export type DocumentRead = {
   morphology_analyzer?: MorphologyAnalyzer | null;
   morphology_settings?: MorphologySettings | null;
   morphology_summary?: MorphologySummary | null;
+  latest_job_id?: UUID | null;
+  latest_job_status?: JobStatus | string | null;
   created_at: string;
   updated_at: string;
 };
@@ -721,12 +882,32 @@ export type WordTrustedExternalEvidenceItem = {
   match_score: number | null;
   source_warning?: string | null;
   warning_message?: string | null;
+  source_evidence_role?: string | null;
+  source_evidence_tier?: string | null;
+  source_evidence_verified?: boolean | null;
+};
+
+export type WordNamedEntityEvidenceItem = {
+  id: UUID | string;
+  provider_key: string;
+  provider_display_name: string;
+  entity_surface: string;
+  normalized_surface: string;
+  entity_type: "PER" | "ORG" | "LOC" | string;
+  source_kind: string;
+  dataset_split: string;
+  occurrence_count: number;
+  confidence: number | null;
+  validation_strength: string;
+  evidence_role: string;
+  sample_contexts: string[];
 };
 
 export type WordEvidenceDetail = WordEvidenceSummary & {
   evidence_items?: WordInternalEvidenceItem[];
   internal_evidence_items?: WordInternalEvidenceItem[];
   trusted_external_evidence_items?: WordTrustedExternalEvidenceItem[];
+  named_entity_evidence_items?: WordNamedEntityEvidenceItem[];
 };
 
 export type WordSearchGroup = {

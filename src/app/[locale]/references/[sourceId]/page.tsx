@@ -4,9 +4,9 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useParams } from "next/navigation";
 
-import { AuthGuard } from "@/components/auth/auth-guard";
 import { JobProgressCard } from "@/components/jobs/job-progress-card";
 import { AppShell } from "@/components/layout/app-shell";
+import { HeaderActionLink, HeaderActions } from "@/components/layout/header-actions";
 import { MorphologyRunAction } from "@/components/morphology/morphology-run-action";
 import { MorphologySettingsCard } from "@/components/morphology/morphology-settings-card";
 import { MorphologySummaryCard } from "@/components/morphology/morphology-summary-card";
@@ -92,10 +92,9 @@ export default function ReferenceSourceDetailPage() {
   const jobEventsQuery = latestJobProgress.eventsQuery;
 
   return (
-    <AuthGuard>
-      <AppShell
+    <AppShell
         actions={
-          <div className="flex flex-wrap gap-2">
+          <HeaderActions>
             {canRunMorphology ? (
               <MorphologyRunAction
                 enabled={canRunMorphology}
@@ -104,17 +103,15 @@ export default function ReferenceSourceDetailPage() {
                 summary={morphologySummary}
               />
             ) : null}
-            <Link href={href(ROUTES.references)}>
-              <Button variant="outline">
-                <ArrowLeft className="h-4 w-4" />
-                {messages.references.backToSources}
-              </Button>
-            </Link>
-          </div>
+            <HeaderActionLink direction="back" href={href(ROUTES.references)}>
+              {messages.references.backToSources}
+            </HeaderActionLink>
+          </HeaderActions>
         }
-        description={messages.references.detailDescription}
-        title={source?.display_name ?? messages.references.title}
-      >
+      description={messages.references.detailDescription}
+      requiredRole="admin"
+      title={source?.display_name ?? messages.references.title}
+    >
         {sourceQuery.isLoading ? (
           <Skeleton className="h-[32rem]" />
         ) : sourceQuery.error ? (
@@ -410,7 +407,6 @@ export default function ReferenceSourceDetailPage() {
             />
           </div>
         ) : null}
-      </AppShell>
-    </AuthGuard>
+    </AppShell>
   );
 }

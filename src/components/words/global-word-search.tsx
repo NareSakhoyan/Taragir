@@ -2,7 +2,7 @@
 
 import { Search } from "lucide-react";
 import { useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { WordCheckSummary } from "@/components/words/word-check-summary";
 import { WordDetailDrawer } from "@/components/words/word-detail-drawer";
@@ -42,6 +42,7 @@ function parseWordSearchLimit(value: string | null | undefined) {
 
 export function GlobalWordSearch() {
   const { messages } = useI18n();
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const query = searchParams.get("q")?.trim() ?? "";
@@ -79,8 +80,11 @@ export function GlobalWordSearch() {
     }
 
     const nextUrl = `${pathname}${nextParams.toString() ? `?${nextParams.toString()}` : ""}`;
-    const historyMethod = historyMode === "push" ? "pushState" : "replaceState";
-    window.history[historyMethod](null, "", nextUrl);
+    if (historyMode === "push") {
+      router.push(nextUrl);
+      return;
+    }
+    router.replace(nextUrl);
   }
 
   const searchQuery = useWordSearch(
@@ -155,12 +159,16 @@ export function GlobalWordSearch() {
             <p className="text-sm font-medium">{messages.words.search.categoriesLabel}</p>
             <ToggleGroup
               className="flex flex-wrap justify-start"
-              onValueChange={(value) =>
+              onValueChange={(value) => {
+                const nextCategories = value as WordSearchCategory[];
+                if (!nextCategories.length) {
+                  return;
+                }
                 updateSearchState({
-                  categories: (value as WordSearchCategory[]) || [],
+                  categories: nextCategories,
                   limit: WORD_SEARCH_BATCH_SIZE,
-                })
-              }
+                });
+              }}
               type="multiple"
               value={categories}
               variant="outline"

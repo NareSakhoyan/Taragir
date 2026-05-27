@@ -10,11 +10,13 @@ export const occurrenceKeys = {
   list: (documentId: string, params: OccurrenceListParams) => [...occurrenceKeys.all, documentId, params] as const,
 };
 
-export function useDocumentOccurrences(documentId: string, params: OccurrenceListParams) {
+export function useDocumentOccurrences(documentId: string, params: OccurrenceListParams, enabled = true) {
   return useQuery({
     queryKey: occurrenceKeys.list(documentId, params),
     queryFn: () => listDocumentOccurrences(documentId, params),
-    enabled: Boolean(documentId),
+    enabled: enabled && Boolean(documentId),
     placeholderData: (previousData) => previousData,
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }

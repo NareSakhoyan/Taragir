@@ -6,6 +6,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useReviewQueue } from "@/lib/hooks/use-review-queue";
+import type { Locale } from "@/lib/i18n/config";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import type { ReviewQueueItem } from "@/lib/types/api";
 import { ROUTES } from "@/lib/utils/constants";
@@ -47,7 +48,7 @@ function ReviewQueueRow({
 }: {
   item: ReviewQueueItem;
   href: (path: string) => string;
-  locale: string;
+  locale: Locale;
   messages: ReturnType<typeof useI18n>["messages"];
 }) {
   const lexiconPath =
@@ -82,7 +83,7 @@ function ReviewQueueItemSummary({
   documentTitle: string;
   candidateCount: number;
   linkedCount: number;
-  locale: string;
+  locale: Locale;
   messages: ReturnType<typeof useI18n>["messages"];
 }) {
   return (

@@ -19,6 +19,7 @@ type JobProgressCardProps = {
   events?: StageEvent[];
   onRetry?: () => void;
   isRetrying?: boolean;
+  showCompletedResult?: boolean;
 };
 
 function resolveCounterText(
@@ -40,6 +41,7 @@ export function JobProgressCard({
   events = [],
   onRetry,
   isRetrying = false,
+  showCompletedResult = true,
 }: JobProgressCardProps) {
   const { href, locale, messages } = useI18n();
   const stageLabel = resolveJobStageLabel(job, messages);
@@ -80,6 +82,8 @@ export function JobProgressCard({
             label={messages.job.progress}
             percent={progressPercent}
           />
+
+          {isActive && events.length ? <JobStageTimeline events={events} /> : null}
 
           {isActive ? (
             <div className="rounded-md border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
@@ -128,14 +132,6 @@ export function JobProgressCard({
         </div>
       </section>
 
-      {events.length ? (
-        <JobStageTimeline
-          description={messages.job.stageHistoryDescription}
-          events={events}
-          title={messages.job.stageHistoryTitle}
-        />
-      ) : null}
-
       {job.status === "failed" ? (
         <JobErrorCard
           canRetry={job.can_retry}
@@ -148,7 +144,7 @@ export function JobProgressCard({
         />
       ) : null}
 
-      {job.status === "completed" && resultAction ? (
+      {showCompletedResult && job.status === "completed" && resultAction ? (
         <div className="rounded-md border border-emerald-200 bg-emerald-50/70 p-5 shadow-sm">
           <p className="text-sm font-medium text-emerald-900">{messages.job.resultReady}</p>
           <p className="mt-1 text-sm text-emerald-800">{messages.job.completedResultDescription}</p>

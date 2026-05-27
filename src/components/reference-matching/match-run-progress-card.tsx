@@ -122,6 +122,8 @@ export function MatchRunProgressCard({
             percent={progressPercent}
           />
 
+          {isActive && events.length ? <JobStageTimeline events={events} /> : null}
+
           {isActive ? (
             <div className="rounded-md border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
               {messages.referenceMatching.detail.leaveAndComeBack}
@@ -169,13 +171,6 @@ export function MatchRunProgressCard({
         </div>
       </section>
 
-      {events.length ? (
-        <JobStageTimeline
-          description={messages.referenceMatching.detail.stageHistoryDescription}
-          events={events}
-          title={messages.referenceMatching.detail.stageHistoryTitle}
-        />
-      ) : null}
     </div>
   );
 }

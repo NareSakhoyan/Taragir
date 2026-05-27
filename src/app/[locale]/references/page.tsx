@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 
-import { AuthGuard } from "@/components/auth/auth-guard";
 import { AppShell } from "@/components/layout/app-shell";
+import { HeaderActionButton } from "@/components/layout/header-actions";
 import { CreateReferenceSourceDialog } from "@/components/references/create-reference-source-dialog";
 import { ReferenceSourcesTable } from "@/components/references/reference-sources-table";
-import { Button } from "@/components/ui/button";
 import { TableLoadingState } from "@/components/ui/table-loading-state";
 import { useReferenceSources } from "@/lib/hooks/use-references";
 import { useI18n } from "@/lib/i18n/use-i18n";
@@ -17,16 +16,16 @@ export default function ReferenceSourcesPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   return (
-    <AuthGuard>
-      <AppShell
-        actions={
-          <Button onClick={() => setCreateDialogOpen(true)} type="button">
-            {messages.references.createSource}
-          </Button>
-        }
-        description={messages.references.description}
-        title={messages.references.title}
-      >
+    <AppShell
+      actions={
+        <HeaderActionButton onClick={() => setCreateDialogOpen(true)} type="button">
+          {messages.references.createSource}
+        </HeaderActionButton>
+      }
+      description={messages.references.description}
+      requiredRole="admin"
+      title={messages.references.title}
+    >
         <div className="flex flex-col gap-8">
           <section className="rounded-md border border-border/80 bg-card/80 p-5 shadow-sm">
             <div className="space-y-1">
@@ -53,7 +52,6 @@ export default function ReferenceSourcesPage() {
           open={createDialogOpen}
           openDetailOnSuccess
         />
-      </AppShell>
-    </AuthGuard>
+    </AppShell>
   );
 }

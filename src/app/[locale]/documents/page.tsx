@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 
-import { AuthGuard } from "@/components/auth/auth-guard";
 import { DocumentsTable } from "@/components/documents/documents-table";
 import { AppShell } from "@/components/layout/app-shell";
+import { UploadForm } from "@/components/upload/upload-form";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,40 +26,46 @@ export default function DocumentsPage() {
   const canGoNext = offset + DOCUMENT_PAGE_SIZE < total;
 
   return (
-    <AuthGuard>
-      <AppShell title={messages.documents.title} description={messages.documents.description}>
-        <div className="flex flex-col">
-          {documentsQuery.isLoading ? (
-            <Skeleton className="h-[32rem]" />
-          ) : (
-            <DocumentsTable
-              description={messages.documents.tableDescription}
-              documents={documentsQuery.data?.items ?? []}
-              emptyMessage={messages.documents.tableEmpty}
-              title={messages.documents.tableTitle}
-            />
-          )}
+    <AppShell title={messages.documents.title} description={messages.documents.description}>
+      <div className="flex flex-col">
+        <section className="mb-10 rounded-xl border border-border/80 bg-muted/10 p-5 shadow-sm">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold tracking-tight">{messages.upload.title}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{messages.upload.description}</p>
+          </div>
+          <UploadForm compact />
+        </section>
 
-          <Separator className="my-10" />
+        {documentsQuery.isLoading ? (
+          <Skeleton className="h-[32rem]" />
+        ) : (
+          <DocumentsTable
+            description={messages.documents.tableDescription}
+            documents={documentsQuery.data?.items ?? []}
+            emptyMessage={messages.documents.tableEmpty}
+            title={messages.documents.tableTitle}
+          />
+        )}
 
-          <div className="flex flex-col gap-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              {messages.documents.showing
-                .replace("{start}", documentsQuery.data ? formatNumber(offset + 1, locale) : "0")
-                .replace("{end}", documentsQuery.data ? formatNumber(Math.min(offset + DOCUMENT_PAGE_SIZE, total), locale) : "0")
-                .replace("{total}", formatNumber(total, locale))}
-            </div>
-            <div className="flex gap-2">
-              <Button disabled={!canGoBack} onClick={() => setOffset((current) => Math.max(0, current - DOCUMENT_PAGE_SIZE))} variant="outline">
-                {messages.common.previous}
-              </Button>
-              <Button disabled={!canGoNext} onClick={() => setOffset((current) => current + DOCUMENT_PAGE_SIZE)} variant="outline">
-                {messages.common.next}
-              </Button>
-            </div>
+        <Separator className="my-10" />
+
+        <div className="flex flex-col gap-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            {messages.documents.showing
+              .replace("{start}", documentsQuery.data ? formatNumber(offset + 1, locale) : "0")
+              .replace("{end}", documentsQuery.data ? formatNumber(Math.min(offset + DOCUMENT_PAGE_SIZE, total), locale) : "0")
+              .replace("{total}", formatNumber(total, locale))}
+          </div>
+          <div className="flex gap-2">
+            <Button disabled={!canGoBack} onClick={() => setOffset((current) => Math.max(0, current - DOCUMENT_PAGE_SIZE))} variant="outline">
+              {messages.common.previous}
+            </Button>
+            <Button disabled={!canGoNext} onClick={() => setOffset((current) => current + DOCUMENT_PAGE_SIZE)} variant="outline">
+              {messages.common.next}
+            </Button>
           </div>
         </div>
-      </AppShell>
-    </AuthGuard>
+      </div>
+    </AppShell>
   );
 }
