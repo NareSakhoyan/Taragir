@@ -164,7 +164,7 @@ export function parseWordSearchCategories(value: string | null | undefined) {
   }
 
   if (!value.trim()) {
-    return [];
+    return [...WORD_SEARCH_CATEGORY_ORDER];
   }
 
   const categories = value

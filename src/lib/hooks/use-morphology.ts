@@ -41,6 +41,8 @@ export function useDocumentMorphologySummary(documentId: string, enabled = true)
     queryKey: morphologyKeys.documentSummary(documentId),
     queryFn: () => getDocumentMorphologySummary(documentId),
     enabled: enabled && Boolean(documentId),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 

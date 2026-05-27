@@ -9,8 +9,8 @@ import { invalidateWorkflowQueries } from "@/lib/hooks/invalidate-curation";
 import { jobKeys } from "@/lib/hooks/use-job";
 import type { JobRead } from "@/lib/types/api";
 import { isAbortError } from "@/lib/utils/abort";
-import { invalidateDocumentNayiriQueries } from "@/lib/hooks/use-document-nayiri";
-import { isIngestionJobKind, isNayiriTrustedLookupJobKind } from "@/lib/utils/jobs";
+import { invalidateDocumentTrustedExternalQueries } from "@/lib/hooks/use-document-trusted-external";
+import { isIngestionJobKind, isTrustedExternalLookupJobKind } from "@/lib/utils/jobs";
 
 const ActiveJobsStreamContext = createContext(false);
 
@@ -77,8 +77,8 @@ function maybeInvalidateWorkflowForJob(
     void invalidateWorkflowQueries(queryClient, { documentId });
   }
 
-  if (isNayiriTrustedLookupJobKind(job.job_kind) && documentId) {
-    void invalidateDocumentNayiriQueries(queryClient, documentId);
+  if (isTrustedExternalLookupJobKind(job.job_kind) && documentId) {
+    void invalidateDocumentTrustedExternalQueries(queryClient, documentId);
   }
 }
 

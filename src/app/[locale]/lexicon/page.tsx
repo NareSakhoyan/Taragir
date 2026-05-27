@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
-import { AuthGuard } from "@/components/auth/auth-guard";
 import { CreateLexemeDialog } from "@/components/lexicon/create-lexeme-dialog";
 import { LexiconGroupDetailSheet } from "@/components/lexicon/lexicon-group-detail-sheet";
 import { LexiconGroupsTable, type LexiconGroupSortKey, type SortDirection } from "@/components/lexicon/lexicon-groups-table";
@@ -201,8 +200,7 @@ export default function LexiconPage() {
   }
 
   return (
-    <AuthGuard>
-      <AppShell description={messages.lexicon.description} title={messages.lexicon.title}>
+    <AppShell description={messages.lexicon.description} requiredRole="admin" title={messages.lexicon.title}>
         <div className="flex flex-col gap-8">
           <section className="rounded-md border border-border/80 bg-card/80 p-5 shadow-sm">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
@@ -404,7 +402,6 @@ export default function LexiconPage() {
         />
         <CreateLexemeDialog onOpenChange={setCreateDialogOpen} open={createDialogOpen} selectedNormalizedForms={selectedForms} />
         <MergeIntoLexemeDialog onOpenChange={setMergeDialogOpen} open={mergeDialogOpen} selectedNormalizedForms={selectedForms} />
-      </AppShell>
-    </AuthGuard>
+    </AppShell>
   );
 }

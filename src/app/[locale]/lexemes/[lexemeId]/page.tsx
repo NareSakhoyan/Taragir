@@ -1,13 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { useParams } from "next/navigation";
 
-import { AuthGuard } from "@/components/auth/auth-guard";
 import { AppShell } from "@/components/layout/app-shell";
+import { HeaderActionLink } from "@/components/layout/header-actions";
 import { LexemeDetailCard } from "@/components/lexemes/lexeme-detail-card";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLexeme } from "@/lib/hooks/use-lexeme";
 import { useI18n } from "@/lib/i18n/use-i18n";
@@ -19,19 +16,16 @@ export default function LexemeDetailPage() {
   const lexemeQuery = useLexeme(params.lexemeId);
 
   return (
-    <AuthGuard>
-      <AppShell
-        actions={
-          <Link href={href(ROUTES.lexemes)}>
-            <Button variant="outline">
-              <ArrowLeft className="h-4 w-4" />
-              {messages.lexemeDetail.backToLexemes}
-            </Button>
-          </Link>
-        }
-        description={messages.lexemeDetail.description}
-        title={lexemeQuery.data?.canonical_form ?? messages.lexemeDetail.fallbackTitle}
-      >
+    <AppShell
+      actions={
+        <HeaderActionLink direction="back" href={href(ROUTES.lexemes)}>
+          {messages.lexemeDetail.backToLexemes}
+        </HeaderActionLink>
+      }
+      description={messages.lexemeDetail.description}
+      requiredRole="admin"
+      title={lexemeQuery.data?.canonical_form ?? messages.lexemeDetail.fallbackTitle}
+    >
         {lexemeQuery.isLoading ? (
           <Skeleton className="h-[34rem]" />
         ) : lexemeQuery.error ? (
@@ -41,7 +35,6 @@ export default function LexemeDetailPage() {
         ) : lexemeQuery.data ? (
           <LexemeDetailCard lexeme={lexemeQuery.data} />
         ) : null}
-      </AppShell>
-    </AuthGuard>
+    </AppShell>
   );
 }

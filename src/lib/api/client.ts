@@ -5,10 +5,11 @@ import { persistSessionCookies, redirectToLogin } from "@/lib/supabase/session";
 import type { ApiErrorResponse } from "@/lib/types/api";
 
 type Primitive = string | number | boolean;
+type SearchParamValue = Primitive | Primitive[] | null | undefined;
 
 type ApiFetchOptions = Omit<RequestInit, "body"> & {
   body?: BodyInit | null;
-  searchParams?: Record<string, Primitive | null | undefined>;
+  searchParams?: Record<string, SearchParamValue>;
   skipUnauthorizedRedirect?: boolean;
 };
 
@@ -33,14 +34,25 @@ function getApiBaseUrl() {
   return baseUrl.replace(/\/+$/, "");
 }
 
-function buildUrl(path: string, searchParams?: Record<string, Primitive | null | undefined>) {
+function buildUrl(path: string, searchParams?: Record<string, SearchParamValue>) {
   const url = new URL(path.replace(/^\//, ""), `${getApiBaseUrl()}/`);
 
   if (searchParams) {
     for (const [key, value] of Object.entries(searchParams)) {
-      if (value != null && value !== "") {
-        url.searchParams.set(key, String(value));
+      if (value == null || value === "") {
+        continue;
       }
+
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (item != null && item !== "") {
+            url.searchParams.append(key, String(item));
+          }
+        }
+        continue;
+      }
+
+      url.searchParams.set(key, String(value));
     }
   }
 

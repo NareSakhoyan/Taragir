@@ -84,6 +84,61 @@ export function humanizeSnakeCase(value: string) {
     .join(" ");
 }
 
+const PART_OF_SPEECH_LABELS = {
+  adj: { en: "Adjective", hy: "Ածական" },
+  adp: { en: "Adposition", hy: "Կապ" },
+  adv: { en: "Adverb", hy: "Մակբայ" },
+  adb: { en: "Adverb", hy: "Մակբայ" },
+  aux: { en: "Auxiliary verb", hy: "Օժանդակ բայ" },
+  cconj: { en: "Coordinating conjunction", hy: "Համադասական շաղկապ" },
+  conj: { en: "Conjunction", hy: "Շաղկապ" },
+  det: { en: "Determiner", hy: "Որոշիչ" },
+  intj: { en: "Interjection", hy: "Ձայնարկություն" },
+  noun: { en: "Noun", hy: "Գոյական" },
+  num: { en: "Numeral", hy: "Թվական" },
+  part: { en: "Particle", hy: "Մասնիկ" },
+  pron: { en: "Pronoun", hy: "Դերանուն" },
+  propn: { en: "Proper noun", hy: "Հատուկ գոյական" },
+  punct: { en: "Punctuation", hy: "Կետադրություն" },
+  sconj: { en: "Subordinating conjunction", hy: "Ստորադասական շաղկապ" },
+  sym: { en: "Symbol", hy: "Նշան" },
+  verb: { en: "Verb", hy: "Բայ" },
+  x: { en: "Other", hy: "Այլ" },
+} satisfies Record<string, Record<Locale, string>>;
+
+type PartOfSpeechKey = keyof typeof PART_OF_SPEECH_LABELS;
+
+const PART_OF_SPEECH_ALIASES: Record<string, PartOfSpeechKey> = {
+  a: "adj",
+  adjective: "adj",
+  adverb: "adv",
+  article: "det",
+  coordinating_conjunction: "cconj",
+  interjection: "intj",
+  n: "noun",
+  numeral: "num",
+  particle: "part",
+  prep: "adp",
+  preposition: "adp",
+  proper_noun: "propn",
+  prt: "part",
+  subordinating_conjunction: "sconj",
+  v: "verb",
+};
+
+export function formatPartOfSpeech(value: string, locale: Locale = defaultLocale) {
+  const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const labelKey: PartOfSpeechKey | undefined = Object.hasOwn(PART_OF_SPEECH_LABELS, normalized)
+    ? (normalized as PartOfSpeechKey)
+    : PART_OF_SPEECH_ALIASES[normalized];
+
+  if (labelKey) {
+    return PART_OF_SPEECH_LABELS[labelKey][locale];
+  }
+
+  return humanizeSnakeCase(value);
+}
+
 export function formatPercent(
   value: number | null | undefined,
   locale: Locale = defaultLocale,

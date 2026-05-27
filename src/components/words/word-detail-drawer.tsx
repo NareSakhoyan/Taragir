@@ -22,9 +22,13 @@ import type {
   WordInternalEvidenceItem,
   WordTrustedExternalEvidenceItem,
 } from "@/lib/types/api";
-import { formatReferenceImportMethod, isOcrReferenceImportMethod } from "@/lib/utils/format";
 import {
-  formatMorphologyStatus,
+  formatPartOfSpeech,
+  formatReferenceImportMethod,
+  humanizeSnakeCase,
+  isOcrReferenceImportMethod,
+} from "@/lib/utils/format";
+import {
   getMorphologyEmptyLabel,
 } from "@/lib/utils/morphology";
 import {
@@ -121,27 +125,14 @@ function DetailSection({
   );
 }
 
-function MorphologyMetric({
-  label,
-  value,
-}: {
-  label: string;
-  value: number | null;
-}) {
-  return (
-    <div className="rounded-md border border-border/70 bg-background/70 p-3">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-2 font-semibold">{value ?? "—"}</p>
-    </div>
-  );
-}
-
-function MorphologyDistribution({
+function MorphologyReadingList({
   title,
   items,
+  formatValue,
 }: {
   title: string;
-  items: { value: string; count: number }[];
+  items: { value: string; count?: number | null }[];
+  formatValue?: (value: string) => string;
 }) {
   if (!items.length) {
     return null;
@@ -152,11 +143,35 @@ function MorphologyDistribution({
       <p className="font-medium text-foreground">{title}</p>
       <div className="flex flex-wrap gap-2">
         {items.map((item) => (
-          <Badge key={`${title}:${item.value}`} variant="outline">
-            {item.value} · {item.count}
+          <Badge className="bg-background/80" key={`${title}:${item.value}`} variant="outline">
+            <span>{formatValue ? formatValue(item.value) : item.value}</span>
+            {item.count != null ? <span className="ml-1 text-muted-foreground">({item.count})</span> : null}
           </Badge>
         ))}
       </div>
+    </div>
+  );
+}
+
+function namedEntityTypeLabel(entityType: string) {
+  const labels: Record<string, string> = {
+    PER: "Person",
+    ORG: "Organization",
+    LOC: "Location",
+  };
+  return labels[entityType] ?? entityType;
+}
+
+function SectionLoadingPlaceholder({ rows = 2 }: { rows?: number }) {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: rows }).map((_, index) => (
+        <div className="space-y-2 rounded-md border border-border/70 bg-background/70 p-3" key={index}>
+          <Skeleton className="h-4 w-1/3 rounded-sm" />
+          <Skeleton className="h-3 w-2/3 rounded-sm" />
+          <Skeleton className="h-3 w-full rounded-sm" />
+        </div>
+      ))}
     </div>
   );
 }
@@ -181,6 +196,16 @@ function buildFallbackInternalEvidenceItems(word: WordEvidenceSummary | null | u
       source_warning: word.source_warning ?? null,
     },
   ] satisfies WordInternalEvidenceItem[];
+}
+
+function internalEvidenceKey(item: WordInternalEvidenceItem, index: number) {
+  return [
+    item.id ?? "internal",
+    item.source_title ?? "unknown",
+    item.page_number ?? "page-unknown",
+    item.context_snippet?.slice(0, 80) ?? "no-context",
+    index,
+  ].join(":");
 }
 
 function buildFallbackTrustedExternalEvidenceItems(word: WordEvidenceSummary | null | undefined) {
@@ -220,6 +245,8 @@ export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerP
       sourceId: word?.source_id ? String(word.source_id) : null,
       normalizedForm: word?.normalized_form ?? null,
       q: word?.display_word ?? null,
+      includeExternal: true,
+      providerKeys: ["nayiri_web"],
     },
     open && Boolean(word),
   );
@@ -256,10 +283,18 @@ export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerP
   const trustedExternalEvidenceItems = detailQuery.data?.trusted_external_evidence_items?.length
     ? detailQuery.data.trusted_external_evidence_items
     : buildFallbackTrustedExternalEvidenceItems(effectiveWord);
+  const namedEntityEvidenceItems = detailQuery.data?.named_entity_evidence_items ?? [];
+  const isDetailSectionLoading = detailQuery.isFetching && !detailQuery.error;
+  const isLexiconSectionLoading = checkQuery.isFetching && !checkQuery.error && !checkQuery.data;
+  const isMorphologySectionLoading =
+    morphologyQuery.isFetching &&
+    !morphologyQuery.error &&
+    !morphologySummary &&
+    !morphologyDetail;
 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
-      <SheetContent className="w-full gap-0 p-0 sm:max-w-xl" side="right">
+      <SheetContent className="w-full gap-0 p-0 sm:max-w-2xl xl:max-w-4xl" side="right">
         <SheetHeader className="border-b border-border/70 px-6 py-5">
           <SheetTitle>{effectiveWord?.display_word ?? messages.words.detail.title}</SheetTitle>
           <SheetDescription>{messages.words.detail.description}</SheetDescription>
@@ -365,12 +400,14 @@ export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerP
                 description={messages.words.detail.internalEvidenceDescription}
                 title={messages.words.detail.internalEvidenceTitle}
               >
-                {internalEvidenceItems.length ? (
+                {isDetailSectionLoading && !internalEvidenceItems.length ? (
+                  <SectionLoadingPlaceholder rows={2} />
+                ) : internalEvidenceItems.length ? (
                   <div className="space-y-3">
                     {internalEvidenceItems.map((item, index) => (
                       <div
                         className="space-y-2 rounded-md border border-border/70 bg-background/70 p-3"
-                        key={item.id ?? `${item.page_number}-${index}`}
+                        key={internalEvidenceKey(item, index)}
                       >
                         {item.source_title ? (
                           <p className="text-sm font-medium [overflow-wrap:anywhere]">{item.source_title}</p>
@@ -407,8 +444,10 @@ export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerP
                 description={messages.words.detail.trustedExternalDescription}
                 title={messages.words.detail.trustedExternalTitle}
               >
-                {trustedExternalEvidenceItems.length ? (
-                  <div className="space-y-3">
+                {isDetailSectionLoading && !trustedExternalEvidenceItems.length ? (
+                  <SectionLoadingPlaceholder rows={2} />
+                ) : trustedExternalEvidenceItems.length ? (
+                  <div className="max-h-[24rem] space-y-3 overflow-y-auto pr-2">
                     {trustedExternalEvidenceItems.map((item, index) => (
                       <div
                         className="space-y-3 rounded-md border border-orange-200/80 bg-orange-50/50 p-3"
@@ -421,6 +460,11 @@ export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerP
                           <Badge className="border-orange-200 bg-white/80 text-orange-800" variant="outline">
                             {item.provider_display_name || messages.words.badges.externalSource}
                           </Badge>
+                          {item.source_evidence_tier ? (
+                            <Badge className="border-blue-200 bg-blue-50 text-blue-700" variant="outline">
+                              {item.source_evidence_tier}
+                            </Badge>
+                          ) : null}
                           {item.match_type ? (
                             <Badge className={getWordMatchTypeClassName(item.match_type)} variant="outline">
                               {getWordMatchTypeLabel(item.match_type, messages)}
@@ -478,8 +522,68 @@ export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerP
                 )}
               </DetailSection>
 
+              <DetailSection
+                description="pioNER can explain likely person, organization, or location names. It supports a proper-noun reading but does not validate dictionary existence."
+                title="Named entity evidence"
+              >
+                {isDetailSectionLoading && !namedEntityEvidenceItems.length ? (
+                  <SectionLoadingPlaceholder rows={1} />
+                ) : namedEntityEvidenceItems.length ? (
+                  <div className="space-y-3">
+                    {namedEntityEvidenceItems.map((item) => (
+                      <div
+                        className="space-y-3 rounded-md border border-violet-200/80 bg-violet-50/50 p-3"
+                        key={item.id}
+                      >
+                        <div className="flex flex-wrap gap-2">
+                          <Badge className="border-violet-200 bg-violet-50 text-violet-700" variant="outline">
+                            {namedEntityTypeLabel(item.entity_type)}
+                          </Badge>
+                          <Badge variant="outline">{item.provider_display_name}</Badge>
+                          <Badge variant="outline">{item.source_kind}</Badge>
+                          <Badge variant="outline">{item.validation_strength.replaceAll("_", " ")}</Badge>
+                        </div>
+                        <div className="grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
+                          <p className="[overflow-wrap:anywhere]">
+                            <span className="font-medium text-foreground">Entity surface</span>
+                            {": "}
+                            {item.entity_surface}
+                          </p>
+                          <p>
+                            <span className="font-medium text-foreground">Occurrences in pioNER</span>
+                            {": "}
+                            {item.occurrence_count.toLocaleString(locale)}
+                          </p>
+                          <p>
+                            <span className="font-medium text-foreground">Split</span>
+                            {": "}
+                            {item.dataset_split}
+                          </p>
+                          <p>
+                            <span className="font-medium text-foreground">Confidence</span>
+                            {": "}
+                            {item.confidence != null ? item.confidence.toLocaleString(locale) : "—"}
+                          </p>
+                        </div>
+                        {item.sample_contexts.length ? (
+                          <div className="space-y-2">
+                            {item.sample_contexts.slice(0, 2).map((context) => (
+                              <p className="rounded-md bg-background/70 p-2 text-sm" key={context}>
+                                {highlightSnippet(context, snippetHighlightTerms)}
+                              </p>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No pioNER named entity evidence for this form.</p>
+                )}
+              </DetailSection>
+
               <DetailSection title={messages.words.detail.lexiconTitle}>
-                {checkQuery.isLoading ? (
+                {isLexiconSectionLoading ? (
                   <Skeleton className="h-20 rounded-md" />
                 ) : checkQuery.error ? (
                   <p className="text-sm text-muted-foreground">{checkQuery.error.message}</p>
@@ -546,84 +650,67 @@ export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerP
               </DetailSection>
 
               <DetailSection title={messages.words.detail.morphologyTitle}>
-                {morphologyQuery.isLoading && !morphologySummary && !morphologyDetail ? (
+                {isMorphologySectionLoading ? (
                   <Skeleton className="h-20 rounded-md" />
                 ) : morphologySummary || morphologyDetail ? (
-                  <div className="space-y-3 text-sm">
+                  <div className="space-y-5 text-sm">
                     {morphologySummary ? (
-                      <>
-                        <div className="flex flex-wrap gap-2">
-                          <Badge variant="outline">
-                            {messages.morphology.labels.available}:{" "}
-                            {morphologySummary.available ? messages.common.yes : messages.common.no}
-                          </Badge>
-                          {morphologySummary.status ? (
-                            <Badge variant="outline">
-                              {formatMorphologyStatus(morphologySummary.status, messages)}
-                            </Badge>
-                          ) : null}
+                      <div className="rounded-md border border-border/70 bg-background/70 p-4">
+                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                          {messages.morphology.labels.interpretation}
+                        </p>
+                        <div className="mt-4 grid gap-4 md:grid-cols-2">
+                          <div className="space-y-1">
+                            <p className="text-sm text-muted-foreground">{messages.morphology.labels.bestLemma}</p>
+                            <p className="text-xl font-semibold [overflow-wrap:anywhere]">
+                              {morphologySummary.best_lemma || "—"}
+                            </p>
+                          </div>
+
+                          <div className="space-y-1">
+                            <p className="text-sm text-muted-foreground">{messages.morphology.labels.posCandidates}</p>
+                            <div className="flex flex-wrap gap-2">
+                              {morphologySummary.pos_candidates.length ? (
+                                morphologySummary.pos_candidates.map((candidate) => (
+                                  <Badge className="bg-background/80" key={candidate} variant="outline">
+                                    {formatPartOfSpeech(candidate, locale)}
+                                  </Badge>
+                                ))
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
 
-                        <p className="[overflow-wrap:anywhere]">
-                          <span className="font-medium text-foreground">{messages.morphology.labels.bestLemma}</span>
-                          {": "}
-                          {morphologySummary.best_lemma || "—"}
-                        </p>
-
                         {morphologySummary.lemma_candidates.length ? (
-                          <div className="space-y-2">
-                            <p className="font-medium text-foreground">{messages.morphology.labels.lemmaCandidates}</p>
-                            <div className="flex flex-wrap gap-2">
-                              {morphologySummary.lemma_candidates.map((candidate) => (
-                                <Badge key={candidate} variant="outline">
-                                  {candidate}
-                                </Badge>
-                              ))}
-                            </div>
+                          <div className="mt-4">
+                            <MorphologyReadingList
+                              items={morphologySummary.lemma_candidates.map((candidate) => ({ value: candidate }))}
+                              title={messages.morphology.labels.lemmaCandidates}
+                            />
                           </div>
                         ) : null}
-
-                        {morphologySummary.pos_candidates.length ? (
-                          <div className="space-y-2">
-                            <p className="font-medium text-foreground">{messages.morphology.labels.posCandidates}</p>
-                            <div className="flex flex-wrap gap-2">
-                              {morphologySummary.pos_candidates.map((candidate) => (
-                                <Badge key={candidate} variant="outline">
-                                  {candidate}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        ) : null}
-                      </>
+                      </div>
                     ) : null}
 
                     {morphologyDetail ? (
                       <>
-                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                          <MorphologyMetric
-                            label={messages.morphology.labels.analyzedOccurrenceCount}
-                            value={morphologyDetail.analyzed_occurrence_count}
-                          />
-                          <MorphologyMetric
-                            label={messages.morphology.labels.completedCount}
-                            value={morphologyDetail.completed_count}
-                          />
-                          <MorphologyMetric
-                            label={messages.morphology.labels.skippedCount}
-                            value={morphologyDetail.skipped_count}
-                          />
-                          <MorphologyMetric
-                            label={messages.morphology.labels.failedCount}
-                            value={morphologyDetail.failed_count}
-                          />
-                        </div>
+                        {morphologyDetail.analyzed_occurrence_count != null ? (
+                          <p className="text-sm text-muted-foreground">
+                            {messages.morphology.labels.evidenceCount.replace(
+                              "{count}",
+                              morphologyDetail.analyzed_occurrence_count.toLocaleString(locale),
+                            )}
+                          </p>
+                        ) : null}
 
-                        <MorphologyDistribution
+                        <MorphologyReadingList
                           items={morphologyDetail.lemma_candidates}
                           title={messages.morphology.labels.lemmaDistribution}
                         />
-                        <MorphologyDistribution
+                        <MorphologyReadingList
+                          formatValue={(value) => formatPartOfSpeech(value, locale)}
                           items={morphologyDetail.pos_distribution}
                           title={messages.morphology.labels.posDistribution}
                         />
@@ -636,10 +723,10 @@ export function WordDetailDrawer({ word, open, onOpenChange }: WordDetailDrawerP
                             <div className="space-y-3">
                               {Object.entries(morphologyDetail.morph_feature_summaries).map(
                                 ([featureName, items]) => (
-                                  <MorphologyDistribution
+                                  <MorphologyReadingList
                                     items={items}
                                     key={featureName}
-                                    title={featureName}
+                                    title={humanizeSnakeCase(featureName)}
                                   />
                                 ),
                               )}

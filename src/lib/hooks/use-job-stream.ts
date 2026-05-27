@@ -10,8 +10,8 @@ import { jobKeys } from "@/lib/hooks/use-job";
 import type { JobRead, StageEvent } from "@/lib/types/api";
 import { JOB_ACTIVE_STATUSES } from "@/lib/utils/constants";
 import { isAbortError } from "@/lib/utils/abort";
-import { invalidateDocumentNayiriQueries } from "@/lib/hooks/use-document-nayiri";
-import { isIngestionJobKind, isNayiriTrustedLookupJobKind } from "@/lib/utils/jobs";
+import { invalidateDocumentTrustedExternalQueries } from "@/lib/hooks/use-document-trusted-external";
+import { isIngestionJobKind, isTrustedExternalLookupJobKind } from "@/lib/utils/jobs";
 
 type UseJobStreamOptions = {
   enabled?: boolean;
@@ -60,8 +60,8 @@ export function useJobStream(jobId: string, options?: UseJobStreamOptions) {
               void invalidateWorkflowQueries(queryClient, { documentId });
             }
 
-            if (isNayiriTrustedLookupJobKind(job.job_kind) && documentId) {
-              void invalidateDocumentNayiriQueries(queryClient, documentId);
+            if (isTrustedExternalLookupJobKind(job.job_kind) && documentId) {
+              void invalidateDocumentTrustedExternalQueries(queryClient, documentId);
             }
           }
         },

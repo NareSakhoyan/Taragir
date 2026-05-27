@@ -63,7 +63,7 @@ function normalizeJobKind(jobKind?: string | null) {
   return jobKind?.trim().toLowerCase().replace(/[\s-]+/g, "_") ?? "";
 }
 
-export function isNayiriTrustedLookupJobKind(jobKind?: string | null) {
+export function isTrustedExternalLookupJobKind(jobKind?: string | null) {
   switch (normalizeJobKind(jobKind)) {
     case "nayiri_trusted_lookup":
     case "nayiri_lookup":
@@ -115,6 +115,8 @@ export function formatJobKind(jobKind: string | null | undefined, messages: JobM
     case "nayiri_lookup":
     case "trusted_external_lookup":
       return messages.jobKinds.nayiriTrustedLookup;
+    case "discovery_build":
+      return messages.jobKinds.discoveryBuild;
     default:
       return jobKind?.trim() ? humanizeSnakeCase(jobKind) : messages.jobKinds.background;
   }
@@ -168,6 +170,7 @@ export function isIngestionJobKind(jobKind?: string | null) {
 
 export function resolveJobResultAction(job: JobRead, messages: JobMessages) {
   const documentId = job.document_id ?? (job.result_resource_type === "document" ? job.result_resource_id : null);
+  const normalizedJobKind = normalizeJobKind(job.job_kind);
 
   if (isIngestionJobKind(job.job_kind) && documentId) {
     return {
@@ -175,6 +178,14 @@ export function resolveJobResultAction(job: JobRead, messages: JobMessages) {
       label: messages.reviewCandidates,
       secondaryHref: `${ROUTES.documents}/${documentId}`,
       secondaryLabel: messages.openDocument,
+    };
+  }
+  if (normalizedJobKind === "discovery_build" && documentId) {
+    return {
+      href: `${ROUTES.documents}/${documentId}/discovery`,
+      label: messages.openResult,
+      secondaryHref: `${ROUTES.jobs}/${job.id}`,
+      secondaryLabel: messages.openJob,
     };
   }
 

@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 
-import { AuthGuard } from "@/components/auth/auth-guard";
 import { AppShell } from "@/components/layout/app-shell";
 import { LexemesTable, type LexemeSortKey, type SortDirection } from "@/components/lexemes/lexemes-table";
 import { Button } from "@/components/ui/button";
@@ -87,8 +86,7 @@ export default function LexemesPage() {
   }
 
   return (
-    <AuthGuard>
-      <AppShell description={messages.lexemes.description} title={messages.lexemes.title}>
+    <AppShell description={messages.lexemes.description} requiredRole="admin" title={messages.lexemes.title}>
         <div className="flex flex-col gap-8">
           <section className="rounded-md border border-border/80 bg-card/80 p-5 shadow-sm">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
@@ -179,7 +177,6 @@ export default function LexemesPage() {
             />
           </section>
         </div>
-      </AppShell>
-    </AuthGuard>
+    </AppShell>
   );
 }

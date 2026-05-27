@@ -7,6 +7,7 @@ import type {
   ReferenceMatchType,
   ReferenceStatusFilter,
   WordMorphologySummary,
+  WordNamedEntityEvidenceItem,
   WordCandidateFilter,
   WordCandidatesParams,
   WordCheckResponse,
@@ -126,7 +127,6 @@ type RawWordEvidenceSummary = Partial<WordEvidenceSummary> & {
   trusted_external_reference_link?: string | null;
   trusted_external_snippet?: string | null;
   trusted_external_canonicalization_status?: string | null;
-  has_reference_match?: boolean | null;
   morphology?: WordMorphologySummary | Record<string, unknown> | null;
   morphology_summary?: WordMorphologySummary | Record<string, unknown> | null;
   word_morphology?: WordMorphologySummary | Record<string, unknown> | null;
@@ -160,6 +160,23 @@ type RawWordEvidenceItem = {
   surface_form?: string | null;
   match_type?: ReferenceMatchType | null;
   match_score?: number | null;
+  source_evidence_role?: string | null;
+  source_evidence_tier?: string | null;
+  source_evidence_verified?: boolean | null;
+};
+
+type RawWordNamedEntityEvidenceItem = Partial<WordNamedEntityEvidenceItem> & {
+  provider_display_name?: string | null;
+  entity_surface?: string | null;
+  normalized_surface?: string | null;
+  entity_type?: string | null;
+  source_kind?: string | null;
+  dataset_split?: string | null;
+  occurrence_count?: number | null;
+  confidence?: number | null;
+  validation_strength?: string | null;
+  evidence_role?: string | null;
+  sample_contexts?: string[] | null;
 };
 
 type RawWordEvidenceDetail = RawWordEvidenceSummary & {
@@ -172,6 +189,8 @@ type RawWordEvidenceDetail = RawWordEvidenceSummary & {
   external_evidence_items?: RawWordEvidenceItem[];
   external_sources?: RawWordEvidenceItem[];
   external_matches?: RawWordEvidenceItem[];
+  named_entity_evidence_items?: RawWordNamedEntityEvidenceItem[];
+  ner_evidence_items?: RawWordNamedEntityEvidenceItem[];
 };
 
 type RawWordSearchPayload =
@@ -201,6 +220,7 @@ type RawWordCheckResponse = Partial<WordCheckResponse> & {
   lexeme_count?: number;
   lexemes?: RawWordLexemeSummary[] | null;
   found_in_books?: boolean;
+  found_in_imported_books?: boolean;
   found_in_documents?: boolean;
   found_in_sources?: boolean;
   found_in_external?: boolean;
@@ -531,6 +551,32 @@ function normalizeTrustedExternalEvidenceItem(
     match_score: raw.match_score ?? null,
     source_warning: raw.source_warning ?? null,
     warning_message: raw.warning_message ?? null,
+    source_evidence_role: raw.source_evidence_role ?? null,
+    source_evidence_tier: raw.source_evidence_tier ?? null,
+    source_evidence_verified:
+      typeof raw.source_evidence_verified === "boolean" ? raw.source_evidence_verified : null,
+  };
+}
+
+function normalizeNamedEntityEvidenceItem(
+  raw: RawWordNamedEntityEvidenceItem,
+  index: number,
+): WordNamedEntityEvidenceItem {
+  const entitySurface = raw.entity_surface ?? raw.normalized_surface ?? "—";
+  return {
+    id: raw.id ?? `named-entity:${entitySurface}:${raw.entity_type ?? "unknown"}:${index}`,
+    provider_key: raw.provider_key ?? "pioner_ner",
+    provider_display_name: raw.provider_display_name ?? "pioNER",
+    entity_surface: entitySurface,
+    normalized_surface: raw.normalized_surface ?? entitySurface,
+    entity_type: raw.entity_type ?? "unknown",
+    source_kind: raw.source_kind ?? "unknown",
+    dataset_split: raw.dataset_split ?? "unknown",
+    occurrence_count: raw.occurrence_count ?? 0,
+    confidence: raw.confidence ?? null,
+    validation_strength: raw.validation_strength ?? "suggests_candidate",
+    evidence_role: raw.evidence_role ?? "named_entity_signal",
+    sample_contexts: raw.sample_contexts ?? [],
   };
 }
 
@@ -699,7 +745,8 @@ function normalizeWordCheckResponse(raw: RawWordCheckResponse, query: string): W
     matching_lexemes: (raw.matching_lexemes ?? raw.lexemes ?? [])
       .map((lexeme) => normalizeWordLexemeSummary(lexeme))
       .filter((lexeme): lexeme is WordLexemeSummary => Boolean(lexeme)),
-    found_in_documents: raw.found_in_documents ?? raw.found_in_books ?? false,
+    found_in_documents:
+      raw.found_in_documents ?? raw.found_in_imported_books ?? raw.found_in_books ?? false,
     found_in_reference_sources: raw.found_in_reference_sources ?? raw.found_in_sources ?? false,
     found_in_trusted_external:
       raw.found_in_trusted_external ??
@@ -730,8 +777,7 @@ export async function searchWords(params: WordSearchParams) {
       include_documents: params.include_documents ?? true,
       include_reference_sources: params.include_reference_sources ?? true,
       include_trusted_external: params.include_trusted_external ?? true,
-      limit: params.limit,
-      offset: params.offset,
+      limit_per_category: params.limit,
     },
   });
 
@@ -755,6 +801,8 @@ export async function getWordEvidence(input: {
   sourceId?: string | null;
   normalizedForm?: string | null;
   q?: string | null;
+  includeExternal?: boolean;
+  providerKeys?: string[] | null;
 }) {
   const payload = await apiFetch<RawWordEvidenceDetail | RawWordEvidenceDetail[]>("/api/v1/word-evidence", {
     searchParams: {
@@ -764,6 +812,8 @@ export async function getWordEvidence(input: {
       source_id: input.sourceId ?? undefined,
       normalized_form: input.normalizedForm ?? undefined,
       q: input.q ?? undefined,
+      include_external: input.includeExternal ?? undefined,
+      provider_keys: input.providerKeys ?? undefined,
     },
   });
 
@@ -787,6 +837,7 @@ export async function getWordEvidence(input: {
     detail?.external_sources ??
     detail?.external_matches ??
     (detail?.evidence_items ? undefined : []);
+  const namedEntityEvidenceItems = detail?.named_entity_evidence_items ?? detail?.ner_evidence_items ?? [];
 
   return {
     ...normalizeWordEvidenceSummary(detail ?? {}, 0),
@@ -799,6 +850,9 @@ export async function getWordEvidence(input: {
     trusted_external_evidence_items:
       trustedExternalEvidenceItems?.map((item, index) => normalizeTrustedExternalEvidenceItem(item, index)) ??
       normalizedSharedTrustedExternal,
+    named_entity_evidence_items: namedEntityEvidenceItems.map((item, index) =>
+      normalizeNamedEntityEvidenceItem(item, index),
+    ),
   } satisfies WordEvidenceDetail;
 }
 

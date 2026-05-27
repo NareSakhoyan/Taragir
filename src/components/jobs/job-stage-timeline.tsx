@@ -1,26 +1,64 @@
 "use client";
 
-import { CheckCircle2, ChevronDown, CircleDot, Clock3 } from "lucide-react";
-import { useState } from "react";
+import {
+  Brain,
+  CheckCircle2,
+  CircleDot,
+  FileSearch,
+  LoaderCircle,
+  SearchCheck,
+  ScanText,
+  Save,
+  UploadCloud,
+  type LucideIcon,
+} from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import type { StageEvent } from "@/lib/types/api";
 import { cn } from "@/lib/utils/classnames";
 import { formatDate, formatNumber, humanizeSnakeCase } from "@/lib/utils/format";
 
 type JobStageTimelineProps = {
-  title: string;
-  description: string;
   events: StageEvent[];
-  emptyMessage?: string;
   className?: string;
-  defaultCollapsed?: boolean;
 };
 
 function resolveEventLabel(event: StageEvent) {
   return event.stage_label?.trim() || humanizeSnakeCase(event.stage_code ?? "") || "Update";
+}
+
+function resolveEventIcon(event: StageEvent): LucideIcon {
+  const stage = `${event.stage_code ?? ""} ${event.stage_label ?? ""}`.toLowerCase();
+
+  if (stage.includes("upload") || stage.includes("queue")) {
+    return UploadCloud;
+  }
+
+  if (stage.includes("extract") || stage.includes("ocr") || stage.includes("scan") || stage.includes("ingest")) {
+    return ScanText;
+  }
+
+  if (stage.includes("morphology") || stage.includes("pie") || stage.includes("analy")) {
+    return Brain;
+  }
+
+  if (stage.includes("lookup") || stage.includes("nayiri") || stage.includes("discover") || stage.includes("match")) {
+    return SearchCheck;
+  }
+
+  if (stage.includes("save") || stage.includes("final")) {
+    return Save;
+  }
+
+  if (stage.includes("complete") || stage.includes("ready")) {
+    return CheckCircle2;
+  }
+
+  if (stage.includes("load") || stage.includes("document") || stage.includes("page")) {
+    return FileSearch;
+  }
+
+  return CircleDot;
 }
 
 function resolveEventTime(event: StageEvent, locale: ReturnType<typeof useI18n>["locale"]) {
@@ -49,15 +87,10 @@ function renderCounterText(
 }
 
 export function JobStageTimeline({
-  title,
-  description,
   events,
-  emptyMessage,
   className,
-  defaultCollapsed = true,
 }: JobStageTimelineProps) {
   const { locale, messages } = useI18n();
-  const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const orderedEvents = [...events].sort((left, right) => {
     const leftTime = left.created_at ? new Date(left.created_at).getTime() : 0;
     const rightTime = right.created_at ? new Date(right.created_at).getTime() : 0;
@@ -66,84 +99,76 @@ export function JobStageTimeline({
   });
 
   if (!orderedEvents.length) {
-    return emptyMessage ? (
-      <section className={cn("rounded-md border border-border/80 bg-card/80 p-5 shadow-sm", className)}>
-        <div className="space-y-1 border-b border-border/70 pb-4">
-          <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
-          <p className="text-sm text-muted-foreground">{description}</p>
-        </div>
-        <p className="pt-4 text-sm text-muted-foreground">{emptyMessage}</p>
-      </section>
-    ) : null;
+    return null;
   }
 
-  return (
-    <section className={cn("rounded-md border border-border/80 bg-card/80 p-5 shadow-sm", className)}>
-      <div className="flex flex-col gap-3 border-b border-border/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
-          <p className="text-sm text-muted-foreground">{description}</p>
-        </div>
+  const visibleEvents = orderedEvents.slice(-4);
+  const currentEvent = visibleEvents[visibleEvents.length - 1];
 
-        <Button
-          onClick={() => setCollapsed((current) => !current)}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          {collapsed ? messages.common.showTimeline : messages.common.hideTimeline}
-          <ChevronDown className={cn("h-4 w-4 transition-transform", collapsed ? "" : "rotate-180")} />
-        </Button>
+  return (
+    <div
+      className={cn(
+        "overflow-hidden rounded-md border border-primary/20 bg-primary/5 p-4 text-sm",
+        className,
+      )}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="relative mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <span className="absolute inset-0 rounded-full bg-primary/15 animate-ping" />
+            <LoaderCircle className="relative h-5 w-5 animate-spin" />
+          </span>
+          <div className="min-w-0">
+            <p className="font-medium text-foreground">{messages.job.currentStage}</p>
+            {currentEvent ? (
+              <p className="mt-1 truncate text-muted-foreground">{resolveEventLabel(currentEvent)}</p>
+            ) : null}
+          </div>
+        </div>
+        <span className="w-fit rounded-full border border-primary/20 bg-background/80 px-3 py-1 text-xs font-medium text-primary">
+          {formatNumber(orderedEvents.length, locale)} {messages.common.updates}
+        </span>
       </div>
 
-      {!collapsed ? (
-      <div className="mt-5 space-y-4">
-        {orderedEvents.map((event, index) => {
+      <ol className="mt-4 grid gap-2">
+        {visibleEvents.map((event, index) => {
           const counterText = renderCounterText(event, locale);
+          const progressPercent = Math.max(0, Math.min(event.progress_percent ?? 0, 100));
+          const isCurrent = index === visibleEvents.length - 1;
+          const EventIcon = resolveEventIcon(event);
 
           return (
-            <div className="relative pl-8" key={event.id ?? `${event.stage_code ?? "event"}-${index}`}>
-              {index < orderedEvents.length - 1 ? (
-                <span className="absolute left-[11px] top-6 h-[calc(100%+0.75rem)] w-px bg-border/80" />
-              ) : null}
-
-              <span className="absolute left-0 top-0 inline-flex h-6 w-6 items-center justify-center rounded-full border border-border/80 bg-background text-muted-foreground">
-                {index === orderedEvents.length - 1 ? (
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                ) : (
-                  <CircleDot className="h-3.5 w-3.5" />
+            <li
+              className={cn(
+                "flex items-center gap-3 rounded-md border border-border/70 bg-background/75 px-3 py-2 transition-colors",
+                isCurrent && "border-primary/30 bg-background shadow-sm",
+              )}
+              key={event.id ?? `${event.stage_code ?? "event"}-${index}`}
+            >
+              <span
+                className={cn(
+                  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
+                  isCurrent ? "border-primary/30 bg-primary/10 text-primary" : "border-border/80 text-muted-foreground",
                 )}
+              >
+                <EventIcon className={cn("h-4 w-4", isCurrent && "animate-pulse")} />
               </span>
-
-              <div className="space-y-1.5 pb-1">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <p className="font-medium">{resolveEventLabel(event)}</p>
-                    {event.stage_message_user ? (
-                      <p className="text-sm text-muted-foreground">{event.stage_message_user}</p>
-                    ) : null}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    {event.progress_percent != null ? (
-                      <Badge className="border-border/80 bg-muted/40 text-foreground" variant="outline">
-                        {formatNumber(event.progress_percent, locale)}%
-                      </Badge>
-                    ) : null}
-                    <span className="inline-flex items-center gap-1">
-                      <Clock3 className="h-3.5 w-3.5" />
-                      {resolveEventTime(event, locale)}
-                    </span>
-                  </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <p className="truncate font-medium">{resolveEventLabel(event)}</p>
+                  {counterText ? <span className="text-xs tabular-nums text-muted-foreground">{counterText}</span> : null}
                 </div>
-
-                {counterText ? <p className="text-sm text-muted-foreground">{counterText}</p> : null}
+                <p className="text-xs text-muted-foreground">{resolveEventTime(event, locale)}</p>
               </div>
-            </div>
+              {event.progress_percent != null ? (
+                <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
+                  {formatNumber(progressPercent, locale)}%
+                </span>
+              ) : null}
+            </li>
           );
         })}
-      </div>
-      ) : null}
-    </section>
+      </ol>
+    </div>
   );
 }

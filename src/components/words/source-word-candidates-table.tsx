@@ -10,6 +10,7 @@ import { useI18n } from "@/lib/i18n/use-i18n";
 import type { DocumentTrustedExternalStatus, OffsetPagination, WordEvidenceSummary } from "@/lib/types/api";
 import { isWordResultExternalLink } from "@/lib/utils/words";
 import { TABLE_PAGE_SIZE_OPTIONS } from "@/lib/utils/constants";
+import { formatPartOfSpeech } from "@/lib/utils/format";
 import { getWordLexemeHref } from "@/lib/utils/words";
 
 type SourceWordCandidatesTableProps = {
@@ -196,7 +197,7 @@ export function SourceWordCandidatesTable({
                         <div className="flex flex-wrap gap-2">
                           {item.morphology.pos_candidates.slice(0, 3).map((candidate) => (
                             <Badge key={candidate} variant="outline">
-                              {candidate}
+                              {formatPartOfSpeech(candidate, locale)}
                             </Badge>
                           ))}
                         </div>
@@ -361,7 +362,7 @@ export function SourceWordCandidatesTable({
                   <div className="flex flex-wrap gap-2">
                     {item.morphology.pos_candidates.slice(0, 3).map((candidate) => (
                       <Badge key={candidate} variant="outline">
-                        {candidate}
+                        {formatPartOfSpeech(candidate, locale)}
                       </Badge>
                     ))}
                   </div>

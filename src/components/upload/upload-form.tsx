@@ -2,10 +2,8 @@
 
 import { LoaderCircle, UploadCloud } from "lucide-react";
 import { useId, useState } from "react";
-import { useRouter } from "next/navigation";
 import { z } from "zod";
 
-import { toast } from "@/lib/notifications";
 import { useStartDocumentUpload } from "@/lib/hooks/use-documents";
 import { useStartAndRedirect } from "@/lib/hooks/use-start-and-redirect";
 import { useI18n } from "@/lib/i18n/use-i18n";
@@ -31,10 +29,9 @@ function isAcceptedFile(file: File) {
 }
 
 export function UploadForm({ compact = false }: UploadFormProps) {
-  const router = useRouter();
   const mutation = useStartDocumentUpload();
   const { handleAcceptedStart } = useStartAndRedirect();
-  const { href, messages } = useI18n();
+  const { messages } = useI18n();
   const fileInputId = useId();
   const [title, setTitle] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -91,30 +88,17 @@ export function UploadForm({ compact = false }: UploadFormProps) {
       },
       {
         onSuccess(response) {
+          const linkedDocumentId = response.document?.id ?? response.job.document_id ?? null;
           setTitle("");
           setFile(null);
           setLanguageStage(DEFAULT_LANGUAGE_STAGE);
           handleAcceptedStart({
             title: messages.upload.successTitle,
             description: response.message || messages.upload.successDescription,
-            path: `${ROUTES.jobs}/${response.job.id}`,
-            redirect: false,
-            actionLabel: messages.job.openJob,
+            path: linkedDocumentId
+              ? `${ROUTES.documents}/${linkedDocumentId}/discovery`
+              : `${ROUTES.jobs}/${response.job.id}`,
           });
-
-          const linkedDocumentId = response.document?.id ?? response.job.document_id ?? null;
-          const markedForMorphology =
-            languageStage === "classical" || DEFAULT_MORPHOLOGY_PROFILE === "xcl_pie";
-
-          if (linkedDocumentId && markedForMorphology) {
-            toast.success(messages.upload.morphologyCtaTitle, {
-              description: messages.upload.morphologyCtaDescription,
-              action: {
-                label: messages.upload.morphologyCtaAction,
-                onClick: () => router.push(href(`${ROUTES.documents}/${linkedDocumentId}`)),
-              },
-            });
-          }
         },
         onError(error) {
           setErrors({

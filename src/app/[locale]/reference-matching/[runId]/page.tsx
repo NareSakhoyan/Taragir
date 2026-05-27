@@ -1,14 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { Search } from "lucide-react";
-import { ArrowLeft } from "lucide-react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
-import { AuthGuard } from "@/components/auth/auth-guard";
 import { AppShell } from "@/components/layout/app-shell";
-import { JobStageTimeline } from "@/components/jobs/job-stage-timeline";
+import { HeaderActionLink } from "@/components/layout/header-actions";
 import { RunResultsTable } from "@/components/reference-matching/run-results-table";
 import { RunSummaryCard } from "@/components/reference-matching/run-summary-card";
 import { Button } from "@/components/ui/button";
@@ -121,19 +118,16 @@ export default function ReferenceMatchingRunDetailPage() {
   const emptyState = resolveResultsEmptyState();
 
   return (
-    <AuthGuard>
-      <AppShell
+    <AppShell
         actions={
-          <Link href={href(ROUTES.referenceMatching)}>
-            <Button variant="outline">
-              <ArrowLeft className="h-4 w-4" />
-              {messages.referenceMatching.backToRuns}
-            </Button>
-          </Link>
+          <HeaderActionLink direction="back" href={href(ROUTES.referenceMatching)}>
+            {messages.referenceMatching.backToRuns}
+          </HeaderActionLink>
         }
-        description={messages.referenceMatching.detailDescription}
-        title={messages.referenceMatching.title}
-      >
+      description={messages.referenceMatching.detailDescription}
+      requiredRole="admin"
+      title={messages.referenceMatching.title}
+    >
         {runQuery.isLoading ? (
           <Skeleton className="h-[28rem]" />
         ) : runQuery.error ? (
@@ -143,6 +137,7 @@ export default function ReferenceMatchingRunDetailPage() {
         ) : run ? (
           <div className="space-y-6">
             <RunSummaryCard
+              events={eventsQuery.data ?? []}
               run={run}
               source={
                 runSourceId || runSourceTitle || run?.source_import_method || run?.source_warning
@@ -158,14 +153,6 @@ export default function ReferenceMatchingRunDetailPage() {
                   : null
               }
             />
-
-            {eventsQuery.data?.length ? (
-              <JobStageTimeline
-                description={messages.referenceMatching.detail.stageHistoryDescription}
-                events={eventsQuery.data}
-                title={messages.referenceMatching.detail.stageHistoryTitle}
-              />
-            ) : null}
 
             <section className="rounded-md border border-border/80 bg-card/80 p-5 shadow-sm">
               <div className="space-y-1 border-b border-border/70 pb-4">
@@ -257,7 +244,6 @@ export default function ReferenceMatchingRunDetailPage() {
             />
           </div>
         ) : null}
-      </AppShell>
-    </AuthGuard>
+    </AppShell>
   );
 }

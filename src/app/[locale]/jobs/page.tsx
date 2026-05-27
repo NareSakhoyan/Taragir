@@ -1,6 +1,5 @@
 "use client";
 
-import { AuthGuard } from "@/components/auth/auth-guard";
 import { RecentJobsPanel } from "@/components/jobs/recent-jobs-panel";
 import { AppShell } from "@/components/layout/app-shell";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,11 +14,11 @@ export default function JobsPage() {
   });
 
   return (
-    <AuthGuard>
-      <AppShell
-        description={messages.job.backgroundWorkDescription}
-        title={messages.job.backgroundWorkTitle}
-      >
+    <AppShell
+      description={messages.job.backgroundWorkDescription}
+      requiredRole="admin"
+      title={messages.job.backgroundWorkTitle}
+    >
         {jobsQuery.isLoading ? (
           <Skeleton className="h-[24rem]" />
         ) : jobsQuery.error ? (
@@ -29,7 +28,6 @@ export default function JobsPage() {
         ) : (
           <RecentJobsPanel jobs={jobsQuery.data ?? []} />
         )}
-      </AppShell>
-    </AuthGuard>
+    </AppShell>
   );
 }
