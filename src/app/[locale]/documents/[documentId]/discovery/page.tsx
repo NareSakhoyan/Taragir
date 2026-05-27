@@ -118,7 +118,6 @@ export default function DocumentDiscoveryPage() {
   );
   const isCandidatesLoading = !candidatesQuery.data && (
     documentQuery.isLoading ||
-    documentQuery.isSuccess ||
     candidatesQuery.isLoading ||
     candidatesQuery.isFetching
   );

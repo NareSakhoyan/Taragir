@@ -58,17 +58,14 @@ export default function DocumentDetailPage() {
   const requestedPageNumber = parseDocumentEvidencePage(searchParams.get("page"));
   const documentQuery = useDocument(documentId);
   const retryMutation = useRetryJobStart();
-  const [activeTab, setActiveTab] = useState<"overview" | "discovery" | "pages" | "word-check" | "occurrences">(
-    requestedPageNumber != null ? "pages" : "overview",
-  );
-  const pagesEnabled = activeTab === "pages";
-  const occurrencesEnabled = isAdmin && activeTab === "occurrences";
-  const legacyWordCheckEnabled = isAdmin && activeTab === "word-check";
+  const [adminTab, setAdminTab] = useState<"word-check" | "occurrences">("word-check");
+  const occurrencesEnabled = isAdmin && adminTab === "occurrences";
+  const legacyWordCheckEnabled = isAdmin && adminTab === "word-check";
   const [morphologyDetailsEnabled, setMorphologyDetailsEnabled] = useState(false);
-  const morphologySummaryEnabled = isAdmin && activeTab === "overview" && morphologyDetailsEnabled;
-  const jobProgressEnabled = activeTab === "overview";
+  const morphologySummaryEnabled = isAdmin && morphologyDetailsEnabled;
+  const jobProgressEnabled = true;
   const trustedExternalSummaryEnabled = legacyWordCheckEnabled;
-  const pagesQuery = useDocumentPages(documentId, { limit: 20, offset: 0 }, documentQuery.isSuccess && pagesEnabled);
+  const pagesQuery = useDocumentPages(documentId, { limit: 20, offset: 0 }, documentQuery.isSuccess);
   const discoverySummaryQuery = useDocumentDiscoverySummary(documentId, documentQuery.isSuccess && !isAdmin);
 
   const [occurrenceFilters, setOccurrenceFilters] = useState({
@@ -295,144 +292,128 @@ export default function DocumentDetailPage() {
           ) : null}
 
           <section className="border-b border-border/80 py-10">
-            <Tabs
-              onValueChange={(value) =>
-                setActiveTab(value as "overview" | "discovery" | "pages" | "word-check" | "occurrences")
-              }
-              value={activeTab}
-            >
-              <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-2 rounded-xl bg-muted/60 p-2 md:grid-cols-4">
-                <TabsTrigger value="overview">{messages.documentDetail.tabs.overview}</TabsTrigger>
-                {!isAdmin ? <TabsTrigger value="discovery">{messages.documentDiscovery.title}</TabsTrigger> : null}
-                <TabsTrigger value="pages">{messages.documentDetail.tabs.pages}</TabsTrigger>
-                {isAdmin ? <TabsTrigger value="word-check">{messages.documentDetail.tabs.wordCheck}</TabsTrigger> : null}
-                {isAdmin ? <TabsTrigger value="occurrences">{messages.documentDetail.tabs.occurrences}</TabsTrigger> : null}
-              </TabsList>
-
-              <TabsContent value="overview">
-                <div className="space-y-6">
-                  {isAdmin ? (
-                    <>
-                      <MorphologySettingsCard
-                        key={`${documentId}:${documentMorphologySettings?.language_stage ?? ""}:${documentMorphologySettings?.morphology_profile ?? ""}`}
-                        settings={documentMorphologySettings}
-                        sourceId={documentId}
-                        sourceType="document"
-                        summary={morphologySummary}
-                      />
-                      {morphologySummary ? (
-                        <MorphologySummaryCard
-                          description={messages.documentDetail.morphologyDescription}
-                          summary={morphologySummary}
-                          title={messages.documentDetail.morphologyTitle}
-                        />
-                      ) : (
-                        <div className="rounded-md border border-dashed border-border/80 bg-muted/10 px-6 py-5 text-sm text-muted-foreground shadow-sm">
-                          <p>Morphology evidence is loaded on demand to keep the document page fast.</p>
-                          <Button
-                            className="mt-3"
-                            disabled={documentMorphologyQuery.isFetching}
-                            onClick={() => setMorphologyDetailsEnabled(true)}
-                            type="button"
-                            variant="outline"
-                          >
-                            {documentMorphologyQuery.isFetching ? "Loading morphology summary..." : "Load morphology summary"}
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <section className="rounded-md border border-border/80 bg-muted/10 p-5 shadow-sm">
-                      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                        <div>
-                          <h3 className="text-lg font-semibold tracking-tight">Discovery workspace</h3>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            Review research candidates, source contexts, and decisions for this document.
-                          </p>
-                        </div>
-                        <Link href={href(`${ROUTES.documents}/${documentId}/discovery`)}>
-                          <Button>{messages.documentDiscovery.title}</Button>
-                        </Link>
-                      </div>
-                      <div className="mt-5 grid gap-3 md:grid-cols-5">
-                        <div className="rounded-md border bg-background p-3">
-                          <p className="text-xs text-muted-foreground">Needs research</p>
-                          <p className="mt-1 text-2xl font-semibold">{formatNumber(needsResearchCount, locale)}</p>
-                        </div>
-                        <div className="rounded-md border bg-background p-3">
-                          <p className="text-xs text-muted-foreground">Poorly defined</p>
-                          <p className="mt-1 text-2xl font-semibold">{formatNumber(poorlyDefinedCount, locale)}</p>
-                        </div>
-                        <div className="rounded-md border bg-background p-3">
-                          <p className="text-xs text-muted-foreground">Possible OCR noise</p>
-                          <p className="mt-1 text-2xl font-semibold">{formatNumber(possibleOcrNoiseCount, locale)}</p>
-                        </div>
-                        <div className="rounded-md border bg-background p-3">
-                          <p className="text-xs text-muted-foreground">Reviewed</p>
-                          <p className="mt-1 text-2xl font-semibold">
-                            {formatNumber(discoverySummary?.reviewed_candidates ?? 0, locale)}
-                          </p>
-                        </div>
-                        <div className="rounded-md border bg-background p-3">
-                          <p className="text-xs text-muted-foreground">Resolved / known</p>
-                          <p className="mt-1 text-2xl font-semibold">{formatNumber(resolvedKnownCount, locale)}</p>
-                        </div>
-                      </div>
-                    </section>
-                  )}
-                  {showJobProgressCard && relatedJobQuery.data ? (
-                    <JobProgressCard
-                      events={jobEventsQuery.data ?? []}
-                      job={relatedJobQuery.data}
-                      showCompletedResult={false}
+            <div className="space-y-6">
+              {isAdmin ? (
+                <>
+                  <MorphologySettingsCard
+                    key={`${documentId}:${documentMorphologySettings?.language_stage ?? ""}:${documentMorphologySettings?.morphology_profile ?? ""}`}
+                    settings={documentMorphologySettings}
+                    sourceId={documentId}
+                    sourceType="document"
+                    summary={morphologySummary}
+                  />
+                  {morphologySummary ? (
+                    <MorphologySummaryCard
+                      description={messages.documentDetail.morphologyDescription}
+                      summary={morphologySummary}
+                      title={messages.documentDetail.morphologyTitle}
                     />
-                  ) : null}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="discovery">
+                  ) : (
+                    <div className="rounded-md border border-dashed border-border/80 bg-muted/10 px-6 py-5 text-sm text-muted-foreground shadow-sm">
+                      <p>Morphology evidence is loaded on demand to keep the document page fast.</p>
+                      <Button
+                        className="mt-3"
+                        disabled={documentMorphologyQuery.isFetching}
+                        onClick={() => setMorphologyDetailsEnabled(true)}
+                        type="button"
+                        variant="outline"
+                      >
+                        {documentMorphologyQuery.isFetching ? "Loading morphology summary..." : "Load morphology summary"}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : (
                 <section className="rounded-md border border-border/80 bg-muted/10 p-5 shadow-sm">
-                  <h3 className="text-lg font-semibold tracking-tight">{messages.documentDiscovery.title}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{messages.documentDiscovery.description}</p>
-                  <div className="mt-5">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold tracking-tight">Discovery workspace</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Review research candidates, source contexts, and decisions for this document.
+                      </p>
+                    </div>
                     <Link href={href(`${ROUTES.documents}/${documentId}/discovery`)}>
                       <Button>{messages.documentDiscovery.title}</Button>
                     </Link>
                   </div>
+                  <div className="mt-5 grid gap-3 md:grid-cols-5">
+                    <div className="rounded-md border bg-background p-3">
+                      <p className="text-xs text-muted-foreground">Needs research</p>
+                      <p className="mt-1 text-2xl font-semibold">{formatNumber(needsResearchCount, locale)}</p>
+                    </div>
+                    <div className="rounded-md border bg-background p-3">
+                      <p className="text-xs text-muted-foreground">Poorly defined</p>
+                      <p className="mt-1 text-2xl font-semibold">{formatNumber(poorlyDefinedCount, locale)}</p>
+                    </div>
+                    <div className="rounded-md border bg-background p-3">
+                      <p className="text-xs text-muted-foreground">Possible OCR noise</p>
+                      <p className="mt-1 text-2xl font-semibold">{formatNumber(possibleOcrNoiseCount, locale)}</p>
+                    </div>
+                    <div className="rounded-md border bg-background p-3">
+                      <p className="text-xs text-muted-foreground">Reviewed</p>
+                      <p className="mt-1 text-2xl font-semibold">
+                        {formatNumber(discoverySummary?.reviewed_candidates ?? 0, locale)}
+                      </p>
+                    </div>
+                    <div className="rounded-md border bg-background p-3">
+                      <p className="text-xs text-muted-foreground">Resolved / known</p>
+                      <p className="mt-1 text-2xl font-semibold">{formatNumber(resolvedKnownCount, locale)}</p>
+                    </div>
+                  </div>
                 </section>
-              </TabsContent>
+              )}
+              {showJobProgressCard && relatedJobQuery.data ? (
+                <JobProgressCard
+                  events={jobEventsQuery.data ?? []}
+                  job={relatedJobQuery.data}
+                  showCompletedResult={false}
+                />
+              ) : null}
+            </div>
+          </section>
 
-              <TabsContent value="pages">
-                <section className="grid gap-0 border-b border-border/80 py-2 xl:grid-cols-[22rem_minmax(0,1fr)] xl:divide-x xl:divide-border/70">
-                  <div className="min-w-0 pb-10 xl:pb-0 xl:pr-10">
-                    <header className="mb-6 border-b border-border/70 pb-6">
-                      <h3 className="text-lg font-semibold tracking-tight">{messages.documentDetail.pagesTitle}</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">{messages.documentDetail.pagesDescription}</p>
-                    </header>
-                    {pagesQuery.isLoading ? (
-                      <Skeleton className="h-[24rem]" />
-                    ) : (
-                      <PageList
-                        pages={pages}
-                        selectedPageId={selectedPage?.id ?? null}
-                        onSelectPage={(page) => handleSelectPage(page.page_number)}
-                      />
-                    )}
-                  </div>
+          <section className="border-b border-border/80 py-10">
+            <div className="grid gap-0 py-2 xl:grid-cols-[22rem_minmax(0,1fr)] xl:divide-x xl:divide-border/70">
+              <div className="min-w-0 pb-10 xl:pb-0 xl:pr-10">
+                <header className="mb-6 border-b border-border/70 pb-6">
+                  <h3 className="text-lg font-semibold tracking-tight">{messages.documentDetail.pagesTitle}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{messages.documentDetail.pagesDescription}</p>
+                </header>
+                {pagesQuery.isLoading ? (
+                  <Skeleton className="h-[24rem]" />
+                ) : (
+                  <PageList
+                    pages={pages}
+                    selectedPageId={selectedPage?.id ?? null}
+                    onSelectPage={(page) => handleSelectPage(page.page_number)}
+                  />
+                )}
+              </div>
 
-                  <div className="min-w-0 border-t border-border/70 pt-10 xl:border-t-0 xl:pl-10 xl:pt-0">
-                    <PageTextViewer page={selectedPage} />
-                  </div>
-                </section>
-                {!pagesQuery.isLoading && !pages.length ? (
-                  <div className="mt-10 flex items-start gap-3 rounded-md border border-dashed border-border/80 bg-muted/10 px-6 py-5 text-sm text-muted-foreground shadow-sm">
-                    <FileStack className="mt-0.5 h-4 w-4 shrink-0" />
-                    {messages.documentDetail.pagesPending}
-                  </div>
-                ) : null}
-              </TabsContent>
+              <div className="min-w-0 border-t border-border/70 pt-10 xl:border-t-0 xl:pl-10 xl:pt-0">
+                <PageTextViewer page={selectedPage} />
+              </div>
+            </div>
+            {!pagesQuery.isLoading && !pages.length ? (
+              <div className="mt-10 flex items-start gap-3 rounded-md border border-dashed border-border/80 bg-muted/10 px-6 py-5 text-sm text-muted-foreground shadow-sm">
+                <FileStack className="mt-0.5 h-4 w-4 shrink-0" />
+                {messages.documentDetail.pagesPending}
+              </div>
+            ) : null}
+          </section>
 
-              <TabsContent value="word-check">
+          {isAdmin ? (
+            <section className="border-b border-border/80 py-10">
+              <Tabs
+                onValueChange={(value) => setAdminTab(value as "word-check" | "occurrences")}
+                value={adminTab}
+              >
+                <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-2 rounded-xl bg-muted/60 p-2">
+                  <TabsTrigger value="word-check">{messages.documentDetail.tabs.wordCheck}</TabsTrigger>
+                  <TabsTrigger value="occurrences">{messages.documentDetail.tabs.occurrences}</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="word-check">
                 <div className="space-y-1 border-b border-border/70 pb-5">
                   <h3 className="text-lg font-semibold tracking-tight">{messages.documentDetail.wordsTitle}</h3>
                   <p className="text-sm text-muted-foreground">{messages.documentDetail.wordsDescription}</p>
@@ -604,8 +585,9 @@ export default function DocumentDetailPage() {
                   }}
                 />
               </TabsContent>
-            </Tabs>
-          </section>
+              </Tabs>
+            </section>
+          ) : null}
 
           <WordDetailDrawer
             onOpenChange={(open) => {
