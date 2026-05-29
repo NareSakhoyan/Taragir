@@ -29,10 +29,6 @@ export default function DocumentsPage() {
     <AppShell title={messages.documents.title} description={messages.documents.description}>
       <div className="flex flex-col">
         <section className="mb-10 rounded-xl border border-border/80 bg-muted/10 p-5 shadow-sm">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold tracking-tight">{messages.upload.title}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{messages.upload.description}</p>
-          </div>
           <UploadForm compact />
         </section>
 
