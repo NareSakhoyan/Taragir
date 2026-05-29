@@ -34,6 +34,20 @@ function getApiBaseUrl() {
   return baseUrl.replace(/\/+$/, "");
 }
 
+function isNgrokUrl(baseUrl: string) {
+  try {
+    return new URL(baseUrl).hostname.includes("ngrok");
+  } catch {
+    return false;
+  }
+}
+
+function applyTunnelHeaders(headers: Headers) {
+  if (isNgrokUrl(getApiBaseUrl())) {
+    headers.set("ngrok-skip-browser-warning", "true");
+  }
+}
+
 function buildUrl(path: string, searchParams?: Record<string, SearchParamValue>) {
   const url = new URL(path.replace(/^\//, ""), `${getApiBaseUrl()}/`);
 
@@ -121,6 +135,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}, a
   const { searchParams, skipUnauthorizedRedirect = false, headers, body, ...rest } = options;
   const token = await getAccessToken(attempt > 0);
   const requestHeaders = new Headers(headers);
+  applyTunnelHeaders(requestHeaders);
 
   if (token) {
     requestHeaders.set("Authorization", `Bearer ${token}`);
@@ -166,6 +181,7 @@ export async function apiFetchBlob(path: string, options: ApiFetchOptions = {}, 
   const { searchParams, skipUnauthorizedRedirect = false, headers, body, ...rest } = options;
   const token = await getAccessToken(attempt > 0);
   const requestHeaders = new Headers(headers);
+  applyTunnelHeaders(requestHeaders);
 
   if (token) {
     requestHeaders.set("Authorization", `Bearer ${token}`);

@@ -21,6 +21,20 @@ function getApiBaseUrl() {
   return baseUrl.replace(/\/+$/, "");
 }
 
+function isNgrokUrl(baseUrl: string) {
+  try {
+    return new URL(baseUrl).hostname.includes("ngrok");
+  } catch {
+    return false;
+  }
+}
+
+function applyTunnelHeaders(headers: Headers) {
+  if (isNgrokUrl(getApiBaseUrl())) {
+    headers.set("ngrok-skip-browser-warning", "true");
+  }
+}
+
 async function getAccessToken() {
   const supabase = getSupabaseBrowserClient();
   const sessionResult = await supabase.auth.getSession();
@@ -66,11 +80,14 @@ export async function streamJobProgress(
   }
 
   try {
+    const headers = new Headers({
+      Authorization: `Bearer ${token}`,
+      Accept: "text/event-stream",
+    });
+    applyTunnelHeaders(headers);
+
     const response = await fetch(`${getApiBaseUrl()}/api/v1/jobs/${jobId}/stream`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "text/event-stream",
-      },
+      headers,
       signal,
     });
 

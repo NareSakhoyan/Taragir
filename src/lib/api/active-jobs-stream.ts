@@ -11,10 +11,13 @@ export async function getActiveJobsCount() {
     return { count: 0 };
   }
 
+  const headers = new Headers({
+    Authorization: `Bearer ${token}`,
+  });
+  applyTunnelHeaders(headers);
+
   const response = await fetch(`${getApiBaseUrl()}/api/v1/me/active-jobs/count`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -37,6 +40,20 @@ function getApiBaseUrl() {
     throw new Error("NEXT_PUBLIC_API_BASE_URL is missing.");
   }
   return baseUrl.replace(/\/+$/, "");
+}
+
+function isNgrokUrl(baseUrl: string) {
+  try {
+    return new URL(baseUrl).hostname.includes("ngrok");
+  } catch {
+    return false;
+  }
+}
+
+function applyTunnelHeaders(headers: Headers) {
+  if (isNgrokUrl(getApiBaseUrl())) {
+    headers.set("ngrok-skip-browser-warning", "true");
+  }
 }
 
 async function getAccessToken() {
@@ -83,11 +100,14 @@ export async function streamActiveJobs(
   }
 
   try {
+    const headers = new Headers({
+      Authorization: `Bearer ${token}`,
+      Accept: "text/event-stream",
+    });
+    applyTunnelHeaders(headers);
+
     const response = await fetch(`${getApiBaseUrl()}/api/v1/me/active-jobs/stream`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "text/event-stream",
-      },
+      headers,
       signal,
     });
 
