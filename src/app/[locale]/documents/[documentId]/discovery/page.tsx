@@ -126,6 +126,7 @@ export default function DocumentDiscoveryPage() {
     shouldAutoStartBuild ||
     buildMutation.isPending ||
     isBuildActive;
+  const isDiscoveryDataLoading = isSummaryLoading || isCandidatesLoading;
   const selectedCandidate = selectedCandidateQuery.data?.candidate ?? null;
   const selectedCandidateDetail = selectedCandidateQuery.data;
   const candidateTypeOptions = Object.keys(summaryQuery.data?.by_candidate_type ?? {}).sort();
@@ -323,7 +324,7 @@ export default function DocumentDiscoveryPage() {
           summary={summaryQuery.data}
         />
 
-        {isQueuePreparing ? (
+        {isQueuePreparing || isDiscoveryDataLoading ? (
           <DiscoveryLoadingState
             boundedProgress={boundedLoadingProgress}
             description={loadingStageMessage ?? loadingStage.description}
