@@ -19,6 +19,7 @@ export function BackgroundJobNotifier() {
   const [trackedJobIds, setTrackedJobIds] = useState<string[]>(() => getRememberedActiveJobIds());
   const trackedJobQueries = useTrackedJobs(trackedJobIds);
   const seenStatusesRef = useRef<Map<string, string>>(new Map());
+  const seenStaleRef = useRef<Map<string, boolean>>(new Map());
   const hasPrimedRef = useRef(false);
   const jobs = trackedJobQueries
     .map((query) => query.data)
@@ -40,36 +41,51 @@ export function BackgroundJobNotifier() {
   useEffect(() => {
     if (!trackedJobIds.length && !jobs.length) {
       seenStatusesRef.current = new Map();
+      seenStaleRef.current = new Map();
       hasPrimedRef.current = false;
       return;
     }
 
     const nextSeenStatuses = new Map<string, string>();
+    const nextSeenStale = new Map<string, boolean>();
 
     for (const job of jobs) {
       nextSeenStatuses.set(job.id, job.status);
+      nextSeenStale.set(job.id, Boolean(job.is_stale));
     }
 
     if (!hasPrimedRef.current) {
       seenStatusesRef.current = nextSeenStatuses;
+      seenStaleRef.current = nextSeenStale;
       hasPrimedRef.current = true;
       return;
     }
 
     for (const job of jobs) {
       const previousStatus = seenStatusesRef.current.get(job.id);
+      const previousStale = seenStaleRef.current.get(job.id);
+      const jobKind = formatJobKind(job.job_kind, messages.job);
+      const description = resolveJobStageMessage(job, messages);
+      const fallbackAction = {
+        href: `${ROUTES.jobs}/${job.id}`,
+        label: messages.job.openJob,
+      };
+
+      if (job.is_stale && !previousStale) {
+        toast.warning(messages.job.notifications.staleTitle.replace("{jobKind}", jobKind), {
+          description,
+          action: {
+            label: fallbackAction.label,
+            onClick: () => router.push(href(fallbackAction.href)),
+          },
+        });
+      }
 
       if (!previousStatus || previousStatus === job.status) {
         continue;
       }
 
-      const jobKind = formatJobKind(job.job_kind, messages.job);
-      const description = resolveJobStageMessage(job, messages);
       const completedAction = resolveJobResultAction(job, messages.job);
-      const fallbackAction = {
-        href: `${ROUTES.jobs}/${job.id}`,
-        label: messages.job.openJob,
-      };
       const action = completedAction ?? fallbackAction;
 
       if (job.status === "completed") {
@@ -88,20 +104,28 @@ export function BackgroundJobNotifier() {
 
       if (job.status === "failed") {
         forgetActiveJob(job.id);
-        toast.error(
-          messages.job.notifications.failedTitle.replace("{jobKind}", jobKind),
-          {
+        if (job.error_code === "job_stale_no_progress") {
+          toast.info(messages.job.notifications.recoveredTitle.replace("{jobKind}", jobKind), {
+            description: job.recovery_note ?? description,
+            action: {
+              label: fallbackAction.label,
+              onClick: () => router.push(href(fallbackAction.href)),
+            },
+          });
+        } else {
+          toast.error(messages.job.notifications.failedTitle.replace("{jobKind}", jobKind), {
             description,
             action: {
               label: fallbackAction.label,
               onClick: () => router.push(href(fallbackAction.href)),
             },
-          },
-        );
+          });
+        }
       }
     }
 
     seenStatusesRef.current = nextSeenStatuses;
+    seenStaleRef.current = nextSeenStale;
   }, [href, jobs, messages, router, trackedJobIds.length]);
 
   return null;

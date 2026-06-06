@@ -7,7 +7,7 @@ import {
   rememberDocumentJobLink,
   rememberReferenceSourceJobLink,
 } from "@/lib/supabase/session";
-import type { JobKind, JobRead, ListParams, RetryJobResponse, StageEvent } from "@/lib/types/api";
+import type { JobKind, JobRead, ListParams, ResumeJobResponse, RetryJobResponse, StageEvent } from "@/lib/types/api";
 import { JOB_ACTIVE_STATUSES } from "@/lib/utils/constants";
 
 type JobListEnvelope<T> = T[] | { items: T[] };
@@ -62,6 +62,27 @@ export async function listJobs(params: ListParams = {}) {
 
 export async function retryJobStart(jobId: string) {
   const response = await apiFetch<RetryJobResponse | JobRead>(`/api/v1/jobs/${jobId}/retry`, {
+    method: "POST",
+  });
+
+  const normalized =
+    "job" in response
+      ? response
+      : {
+          job: response,
+          message: null,
+        };
+
+  const job = normalized.job;
+
+  rememberJobResourceLink(job);
+  rememberActiveJob(job.id);
+
+  return normalized;
+}
+
+export async function resumeJobStart(jobId: string) {
+  const response = await apiFetch<ResumeJobResponse | JobRead>(`/api/v1/jobs/${jobId}/resume`, {
     method: "POST",
   });
 

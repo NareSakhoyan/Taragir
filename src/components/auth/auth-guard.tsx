@@ -14,7 +14,7 @@ type AuthGuardProps = {
 };
 
 export function AuthGuard({ children, requiredRole }: AuthGuardProps) {
-  const { isAdmin, isLoading, isProfileLoading, session } = useAuthSession();
+  const { isAdmin, isLoading, isProfileLoading, profile, session } = useAuthSession();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -38,7 +38,17 @@ export function AuthGuard({ children, requiredRole }: AuthGuardProps) {
     router.replace(href(ROUTES.documents));
   }, [href, isAdmin, isLoading, isProfileLoading, requiredRole, router, session]);
 
-  if (isLoading || !session || (session && isProfileLoading) || (requiredRole === "admin" && !isAdmin)) {
+  const needsAdminProfile = requiredRole === "admin";
+  const profileResolved = !session || Boolean(profile) || !isProfileLoading;
+  const isWaitingForProfile = Boolean(session) && needsAdminProfile && !profileResolved;
+  const isRedirectingUnauthorizedAdmin =
+    Boolean(session) && needsAdminProfile && profileResolved && !isAdmin;
+
+  if (isRedirectingUnauthorizedAdmin) {
+    return null;
+  }
+
+  if (isLoading || !session || isWaitingForProfile) {
     return (
       <div className="flex min-h-screen items-center justify-center px-6">
         <div className="flex items-center gap-3 rounded-md border border-border/80 bg-background/90 px-5 py-3 text-sm text-muted-foreground shadow-sm backdrop-blur-sm">

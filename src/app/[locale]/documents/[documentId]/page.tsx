@@ -25,7 +25,7 @@ import { useDocumentDiscoverySummary } from "@/lib/hooks/use-document-discovery"
 import { useDocumentOccurrences } from "@/lib/hooks/use-document-occurrences";
 import { useDocumentMorphologySummary } from "@/lib/hooks/use-morphology";
 import { useDocumentPages } from "@/lib/hooks/use-document-pages";
-import { useJobProgress, useRetryJobStart } from "@/lib/hooks/use-job";
+import { useJobProgress, useResumeJobStart, useRetryJobStart } from "@/lib/hooks/use-job";
 import { useStartAndRedirect } from "@/lib/hooks/use-start-and-redirect";
 import {
   useDocumentTrustedExternalLookupSummary,
@@ -58,6 +58,7 @@ export default function DocumentDetailPage() {
   const requestedPageNumber = parseDocumentEvidencePage(searchParams.get("page"));
   const documentQuery = useDocument(documentId);
   const retryMutation = useRetryJobStart();
+  const resumeMutation = useResumeJobStart();
   const [adminTab, setAdminTab] = useState<"word-check" | "occurrences">("word-check");
   const occurrencesEnabled = isAdmin && adminTab === "occurrences";
   const legacyWordCheckEnabled = isAdmin && adminTab === "word-check";
@@ -176,11 +177,9 @@ export default function DocumentDetailPage() {
       : messages.words.nayiri.runCheck;
   const discoverySummary = discoverySummaryQuery.data;
   const discoveryResolution = discoverySummary?.by_resolution_status ?? {};
-  const needsResearchCount =
-    (discoveryResolution.needs_linguist_research ?? 0) + (discoveryResolution.unknown_plausible ?? 0);
-  const poorlyDefinedCount = discoveryResolution.poorly_defined ?? 0;
-  const possibleOcrNoiseCount =
-    (discoveryResolution.possible_ocr_noise ?? 0) + (discoveryResolution.probable_ocr_noise ?? 0);
+  const reviewQueueCount = discoverySummary?.visible_candidates ?? 0;
+  const possibleOcrNoiseCount = discoveryResolution.possible_ocr_noise ?? 0;
+  const conflictingSourcesCount = discoveryResolution.conflicting_sources ?? 0;
   const resolvedKnownCount =
     (discoveryResolution.resolved_known ?? 0) +
     (discoveryResolution.resolved_by_dictionary ?? 0) +
@@ -191,6 +190,8 @@ export default function DocumentDetailPage() {
     documentQuery.data?.status === "failed"
       ? relatedJobQuery.data ?? null
       : null;
+  const recoverableJob =
+    failureJob ?? (relatedJobQuery.data?.can_resume ? relatedJobQuery.data : null);
 
   async function handleRetry() {
     if (!failureJob) {
@@ -206,6 +207,23 @@ export default function DocumentDetailPage() {
       });
     } catch (error) {
       handleStartError(messages.job.retryFailedTitle, error);
+    }
+  }
+
+  async function handleResume() {
+    if (!recoverableJob) {
+      return;
+    }
+
+    try {
+      const result = await resumeMutation.mutateAsync(recoverableJob.id);
+      handleAcceptedStart({
+        title: messages.job.resumeStartedTitle,
+        description: result.message || messages.job.resumeStartedDescription,
+        path: `${ROUTES.jobs}/${result.job.id}`,
+      });
+    } catch (error) {
+      handleStartError(messages.job.resumeFailedTitle, error);
     }
   }
 
@@ -277,12 +295,16 @@ export default function DocumentDetailPage() {
               {documentQuery.data.status === "failed" || failureJob ? (
                 <div className="mt-8">
                   <JobErrorCard
+                    canResume={failureJob?.can_resume}
                     canRetry={failureJob?.can_retry}
                     errorMessageUser={failureJob?.error_message_user}
+                    isResuming={resumeMutation.isPending}
                     isRetrying={retryMutation.isPending}
                     lastRetriedAt={failureJob?.last_retried_at}
                     nextSteps={failureJob?.next_steps}
+                    onResume={recoverableJob?.can_resume ? handleResume : undefined}
                     onRetry={failureJob?.can_retry ? handleRetry : undefined}
+                    resumeFromPage={failureJob?.resume_from_page}
                     retryCount={failureJob?.retry_count}
                   />
                 </div>
@@ -338,16 +360,16 @@ export default function DocumentDetailPage() {
                   </div>
                   <div className="mt-5 grid gap-3 md:grid-cols-5">
                     <div className="rounded-md border bg-background p-3">
-                      <p className="text-xs text-muted-foreground">Needs research</p>
-                      <p className="mt-1 text-2xl font-semibold">{formatNumber(needsResearchCount, locale)}</p>
-                    </div>
-                    <div className="rounded-md border bg-background p-3">
-                      <p className="text-xs text-muted-foreground">Poorly defined</p>
-                      <p className="mt-1 text-2xl font-semibold">{formatNumber(poorlyDefinedCount, locale)}</p>
+                      <p className="text-xs text-muted-foreground">In review queue</p>
+                      <p className="mt-1 text-2xl font-semibold">{formatNumber(reviewQueueCount, locale)}</p>
                     </div>
                     <div className="rounded-md border bg-background p-3">
                       <p className="text-xs text-muted-foreground">Possible OCR noise</p>
                       <p className="mt-1 text-2xl font-semibold">{formatNumber(possibleOcrNoiseCount, locale)}</p>
+                    </div>
+                    <div className="rounded-md border bg-background p-3">
+                      <p className="text-xs text-muted-foreground">Conflicting evidence</p>
+                      <p className="mt-1 text-2xl font-semibold">{formatNumber(conflictingSourcesCount, locale)}</p>
                     </div>
                     <div className="rounded-md border bg-background p-3">
                       <p className="text-xs text-muted-foreground">Reviewed</p>
@@ -365,7 +387,11 @@ export default function DocumentDetailPage() {
               {showJobProgressCard && relatedJobQuery.data ? (
                 <JobProgressCard
                   events={jobEventsQuery.data ?? []}
+                  isResuming={resumeMutation.isPending}
+                  isRetrying={retryMutation.isPending}
                   job={relatedJobQuery.data}
+                  onResume={recoverableJob?.can_resume ? handleResume : undefined}
+                  onRetry={failureJob?.can_retry ? handleRetry : undefined}
                   showCompletedResult={false}
                 />
               ) : null}

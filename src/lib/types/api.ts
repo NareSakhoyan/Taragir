@@ -173,7 +173,23 @@ export type DiscoveryCandidateParams = ListParams & {
   review_status?: string;
   min_interest_score?: number;
   include_suppressed?: boolean;
-  sort?: "interest_score_desc" | "normalized_form_asc" | string;
+  sort?:
+    | "normalized_form_asc"
+    | "normalized_form_desc"
+    | "occurrence_count_asc"
+    | "occurrence_count_desc"
+    | "page_count_asc"
+    | "page_count_desc"
+    | "candidate_type_asc"
+    | "candidate_type_desc"
+    | "resolution_status_asc"
+    | "resolution_status_desc"
+    | "ocr_risk_score_asc"
+    | "ocr_risk_score_desc"
+    | "interest_score_asc"
+    | "interest_score_desc"
+    | "review_status_asc"
+    | "review_status_desc";
 };
 
 export type DiscoveryBuildStartResponse = {
@@ -354,6 +370,8 @@ export type JobRead = {
   id: UUID;
   document_id?: UUID | null;
   user_id?: UUID;
+  owner_email?: string | null;
+  owner_display_name?: string | null;
   job_kind?: JobKind | null;
   status: JobStatus;
   step: string | null;
@@ -368,6 +386,11 @@ export type JobRead = {
   error_message_user?: string | null;
   next_steps?: string[] | null;
   can_retry?: boolean;
+  can_resume?: boolean;
+  resume_from_page?: number | null;
+  resume_of_job_id?: string | null;
+  latest_resume_job_id?: UUID | null;
+  latest_resume_job_status?: string | null;
   retry_count?: number;
   last_retried_at?: string | null;
   retry_of_job_id?: string | null;
@@ -377,6 +400,13 @@ export type JobRead = {
   started_at: string | null;
   finished_at: string | null;
   created_at: string;
+  updated_at?: string;
+  is_stale?: boolean;
+  stale_detected_at?: string | null;
+  last_progress_at?: string | null;
+  recovery_note?: string | null;
+  latest_retry_job_id?: UUID | null;
+  latest_retry_job_status?: string | null;
 };
 
 export type IngestionJobRead = JobRead;
@@ -386,6 +416,8 @@ export type RetryJobResponse = {
   message?: string | null;
   resource_summary?: JobResourceSummary | null;
 };
+
+export type ResumeJobResponse = RetryJobResponse;
 
 export type DocumentUploadResponse = {
   document?: DocumentRead | null;

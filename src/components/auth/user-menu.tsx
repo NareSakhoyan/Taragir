@@ -14,16 +14,29 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { ViewMode } from "@/components/auth/auth-provider";
 
 export function UserMenu() {
   const router = useRouter();
-  const { supabase, user } = useAuthSession();
+  const { isAccountAdmin, setViewMode, supabase, user, viewMode } = useAuthSession();
   const { href, messages } = useI18n();
 
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "U";
+
+  function switchViewMode(nextViewMode: string) {
+    if (nextViewMode !== "admin" && nextViewMode !== "normal") {
+      return;
+    }
+
+    const typedViewMode = nextViewMode as ViewMode;
+    setViewMode(typedViewMode);
+    router.replace(href(typedViewMode === "admin" ? ROUTES.dashboard : ROUTES.documents));
+  }
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -53,6 +66,18 @@ export function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {isAccountAdmin ? (
+          <>
+            <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">
+              {messages.auth.viewMode}
+            </DropdownMenuLabel>
+            <DropdownMenuRadioGroup onValueChange={switchViewMode} value={viewMode}>
+              <DropdownMenuRadioItem value="admin">{messages.auth.adminView}</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="normal">{messages.auth.normalView}</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
         <DropdownMenuItem onSelect={signOut}>
           <LogOut className="h-4 w-4" />
           {messages.auth.signOut}

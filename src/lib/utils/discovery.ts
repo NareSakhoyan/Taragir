@@ -33,15 +33,16 @@ export function strictEvidenceLabel(matchType: string) {
 
 export function candidateTypeLabel(value: string) {
   const labels: Record<string, string> = {
-    needs_linguist_research: "Needs research",
-    poorly_defined: "Poorly defined",
-    attested_needs_definition: "Attested but not defined",
+    needs_linguist_research: "Unresolved (hidden)",
+    poorly_defined: "Source-attested",
+    attested_needs_definition: "Source-attested",
     possible_ocr_noise: "Possible OCR noise",
     probable_ocr_noise: "Probable OCR noise",
     known_suppressed: "Known in internal lexicon",
-    attested_suppressed: "Attested but not defined",
+    attested_suppressed: "Source-attested",
     noise_suppressed: "Probable OCR noise",
-    unknown_plausible: "Needs research",
+    unknown_plausible: "Plausible form",
+    weakly_attested: "Weakly attested (hidden)",
     named_entity_candidate: "Possible named entity",
     conflicting_sources: "Conflicting evidence",
   };
@@ -50,9 +51,9 @@ export function candidateTypeLabel(value: string) {
 
 export function resolutionStatusLabel(value: string) {
   const labels: Record<string, string> = {
-    needs_linguist_research: "Needs research",
-    poorly_defined: "Poorly defined",
-    attested_in_corpus: "Attested but not defined",
+    needs_linguist_research: "Unresolved (hidden)",
+    poorly_defined: "Source-attested",
+    attested_in_corpus: "Corpus-attested",
     possible_ocr_noise: "Possible OCR noise",
     probable_ocr_noise: "Probable OCR noise",
     resolved_by_dictionary: "Resolved by dictionary",
@@ -60,7 +61,8 @@ export function resolutionStatusLabel(value: string) {
     resolved_known: "Known in internal lexicon",
     possible_named_entity: "Possible named entity",
     conflicting_sources: "Conflicting evidence",
-    unknown_plausible: "Needs research",
+    unknown_plausible: "Plausible form",
+    weakly_attested: "Weakly attested (hidden)",
   };
   return labels[value] ?? value.replaceAll("_", " ");
 }
@@ -68,7 +70,7 @@ export function resolutionStatusLabel(value: string) {
 export function suggestedAction(candidate: DiscoveryCandidate) {
   const status = candidate.resolution_status;
   if (status === "poorly_defined" || status === "attested_in_corpus") {
-    return "Check lexical sources and add or improve a definition.";
+    return "No definition work is needed; this form is already attested by a source.";
   }
   if (status === "possible_ocr_noise" || status === "probable_ocr_noise") {
     return "Inspect the OCR context before rejecting or correcting the form.";
@@ -82,7 +84,13 @@ export function suggestedAction(candidate: DiscoveryCandidate) {
   if (status === "possible_named_entity") {
     return "Check whether this is a person, organization, or place name before linking or dismissing it.";
   }
-  return "Research the form, then mark it known, interesting, uncertain, or OCR noise.";
+  if (status === "unknown_plausible") {
+    return "Review this plausible Armenian form and decide whether to keep researching, mark known, or dismiss it.";
+  }
+  if (status === "weakly_attested" || status === "needs_linguist_research") {
+    return "This form is hidden from the default review queue; use Include suppressed to inspect it if needed.";
+  }
+  return "Review the form and mark it known, interesting, uncertain, or OCR noise.";
 }
 
 export function evidenceRoleLabel(value: string) {
@@ -258,7 +266,7 @@ export function userEvidenceMeaning(item: DiscoveryEvidenceItem) {
     return "This source treats the form as a word.";
   }
   if (item.validation_strength === "supports_word") {
-    return "This source attests the form, but does not by itself provide a definition.";
+    return "This source attests the form as existing evidence.";
   }
   if (item.validation_strength === "suggests_candidate") {
     return "This source suggests a possible analysis; review it with the page context.";

@@ -1,5 +1,7 @@
 "use client";
 
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,6 +16,7 @@ import {
   resolutionStatusLabel,
   reviewStatusLabel,
 } from "@/lib/utils/discovery";
+import { cn } from "@/lib/utils/classnames";
 import { formatNumber } from "@/lib/utils/format";
 
 type DiscoveryCopy = {
@@ -44,10 +47,57 @@ type DiscoveryCandidatesTableProps = {
   locale: Locale;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
+  onSort: (key: DiscoveryCandidateSortKey) => void;
   onViewCandidate: (candidate: DiscoveryCandidate) => void;
   pageSize: number;
+  sortDirection: SortDirection;
+  sortKey: DiscoveryCandidateSortKey;
   totalPages: number;
 };
+
+export type DiscoveryCandidateSortKey =
+  | "normalized_form"
+  | "occurrence_count"
+  | "page_count"
+  | "candidate_type"
+  | "resolution_status"
+  | "ocr_risk_score"
+  | "interest_score"
+  | "review_status";
+
+export type SortDirection = "asc" | "desc";
+
+function SortableHead({
+  activeSortKey,
+  className,
+  direction,
+  label,
+  onSort,
+  sortKey,
+}: {
+  activeSortKey: DiscoveryCandidateSortKey;
+  className?: string;
+  direction: SortDirection;
+  label: string;
+  onSort: (key: DiscoveryCandidateSortKey) => void;
+  sortKey: DiscoveryCandidateSortKey;
+}) {
+  const active = activeSortKey === sortKey;
+  const Icon = !active ? ArrowUpDown : direction === "asc" ? ArrowUp : ArrowDown;
+
+  return (
+    <TableHead className={className}>
+      <button
+        className="inline-flex items-center gap-1 font-medium text-muted-foreground transition-colors hover:text-foreground"
+        onClick={() => onSort(sortKey)}
+        type="button"
+      >
+        <span>{label}</span>
+        <Icon className={cn("h-3.5 w-3.5", active ? "text-foreground" : "text-muted-foreground")} />
+      </button>
+    </TableHead>
+  );
+}
 
 export function DiscoveryCandidatesTable({
   candidates,
@@ -59,8 +109,11 @@ export function DiscoveryCandidatesTable({
   locale,
   onPageChange,
   onPageSizeChange,
+  onSort,
   onViewCandidate,
   pageSize,
+  sortDirection,
+  sortKey,
   totalPages,
 }: DiscoveryCandidatesTableProps) {
   if (errorMessage) {
@@ -95,17 +148,85 @@ export function DiscoveryCandidatesTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{copy.columns.word}</TableHead>
-              {!isAdmin ? <TableHead>Why shown</TableHead> : null}
+              <SortableHead
+                activeSortKey={sortKey}
+                direction={sortDirection}
+                label={copy.columns.word}
+                onSort={onSort}
+                sortKey="normalized_form"
+              />
+              {!isAdmin ? (
+                <SortableHead
+                  activeSortKey={sortKey}
+                  direction={sortDirection}
+                  label="Why shown"
+                  onSort={onSort}
+                  sortKey="resolution_status"
+                />
+              ) : null}
               {!isAdmin ? <TableHead>Best evidence</TableHead> : null}
-              <TableHead>{copy.columns.occurrences}</TableHead>
-              {isAdmin ? <TableHead>{copy.columns.pages}</TableHead> : null}
-              {isAdmin ? <TableHead>{copy.columns.type}</TableHead> : null}
-              {isAdmin ? <TableHead>{copy.columns.resolution}</TableHead> : null}
+              <SortableHead
+                activeSortKey={sortKey}
+                direction={sortDirection}
+                label={copy.columns.occurrences}
+                onSort={onSort}
+                sortKey="occurrence_count"
+              />
+              {isAdmin ? (
+                <SortableHead
+                  activeSortKey={sortKey}
+                  direction={sortDirection}
+                  label={copy.columns.pages}
+                  onSort={onSort}
+                  sortKey="page_count"
+                />
+              ) : null}
+              {isAdmin ? (
+                <SortableHead
+                  activeSortKey={sortKey}
+                  direction={sortDirection}
+                  label={copy.columns.type}
+                  onSort={onSort}
+                  sortKey="candidate_type"
+                />
+              ) : null}
+              {isAdmin ? (
+                <SortableHead
+                  activeSortKey={sortKey}
+                  direction={sortDirection}
+                  label={copy.columns.resolution}
+                  onSort={onSort}
+                  sortKey="resolution_status"
+                />
+              ) : null}
               {isAdmin ? <TableHead>{copy.columns.evidence}</TableHead> : null}
-              {isAdmin ? <TableHead>{copy.columns.ocrRisk}</TableHead> : null}
-              {isAdmin ? <TableHead>{copy.columns.score}</TableHead> : null}
-              {isAdmin ? <TableHead>{copy.columns.review}</TableHead> : null}
+              {isAdmin ? (
+                <SortableHead
+                  activeSortKey={sortKey}
+                  direction={sortDirection}
+                  label={copy.columns.ocrRisk}
+                  onSort={onSort}
+                  sortKey="ocr_risk_score"
+                />
+              ) : null}
+              {isAdmin ? (
+                <SortableHead
+                  activeSortKey={sortKey}
+                  direction={sortDirection}
+                  label={copy.columns.score}
+                  onSort={onSort}
+                  sortKey="interest_score"
+                />
+              ) : null}
+              {isAdmin ? (
+                <SortableHead
+                  activeSortKey={sortKey}
+                  direction={sortDirection}
+                  label={copy.columns.review}
+                  onSort={onSort}
+                  sortKey="review_status"
+                />
+              ) : null}
               <TableHead className="text-right">{copy.columns.actions}</TableHead>
             </TableRow>
           </TableHeader>

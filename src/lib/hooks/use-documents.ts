@@ -8,6 +8,7 @@ import {
   listDocuments,
   startDocumentUpload,
 } from "@/lib/api/documents";
+import { useAuthSession } from "@/lib/hooks/use-auth-session";
 import { jobKeys } from "@/lib/hooks/use-job";
 import type { ListParams } from "@/lib/types/api";
 
@@ -21,16 +22,24 @@ export const documentKeys = {
 };
 
 export function useDocuments(params: ListParams) {
+  const { isLoading, session } = useAuthSession();
+  const enabled = !isLoading && Boolean(session);
+
   return useQuery({
     queryKey: documentKeys.list(params),
     queryFn: () => listDocuments(params),
+    enabled,
   });
 }
 
 export function useDocumentStats() {
+  const { isLoading, session } = useAuthSession();
+  const enabled = !isLoading && Boolean(session);
+
   return useQuery({
     queryKey: documentKeys.stats(),
     queryFn: getDocumentStats,
+    enabled,
   });
 }
 

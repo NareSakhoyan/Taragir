@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Play, UserCircle } from "lucide-react";
 
 import { DocumentStatusBadge } from "@/components/documents/document-status-badge";
 import { JobErrorCard } from "@/components/jobs/job-error-card";
@@ -18,7 +18,9 @@ type JobProgressCardProps = {
   job: IngestionJobRead;
   events?: StageEvent[];
   onRetry?: () => void;
+  onResume?: () => void;
   isRetrying?: boolean;
+  isResuming?: boolean;
   showCompletedResult?: boolean;
 };
 
@@ -36,11 +38,25 @@ function resolveCounterText(
     .replace("{total}", formatNumber(job.items_total, locale));
 }
 
+function resolveOwnerLabel(job: IngestionJobRead) {
+  if (job.owner_display_name?.trim()) {
+    return job.owner_display_name;
+  }
+
+  if (job.owner_email?.trim()) {
+    return job.owner_email;
+  }
+
+  return job.user_id ? `User ${job.user_id.slice(0, 8)}` : null;
+}
+
 export function JobProgressCard({
   job,
   events = [],
   onRetry,
+  onResume,
   isRetrying = false,
+  isResuming = false,
   showCompletedResult = true,
 }: JobProgressCardProps) {
   const { href, locale, messages } = useI18n();
@@ -52,8 +68,14 @@ export function JobProgressCard({
     job.status === "completed" ? 100 : 0,
   );
   const isActive = job.status === "queued" || job.status === "running";
+  const isRecoveredStaleJob = job.status === "failed" && job.error_code === "job_stale_no_progress";
   const resultAction = resolveJobResultAction(job, messages.job);
   const jobDocumentHref = job.document_id ? `${ROUTES.documents}/${job.document_id}?jobId=${job.id}` : null;
+  const ownerLabel = resolveOwnerLabel(job);
+  const resumeLabel =
+    job.resume_from_page != null
+      ? messages.job.resumeFromPage.replace("{page}", formatNumber(job.resume_from_page, locale))
+      : messages.job.resumeProcessing;
 
   return (
     <div className="space-y-6">
@@ -69,6 +91,15 @@ export function JobProgressCard({
             <span className="rounded-full border border-border/70 px-3 py-1 text-xs font-medium text-muted-foreground">
               {formatJobKind(job.job_kind, messages.job)}
             </span>
+            {ownerLabel ? (
+              <span
+                className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 px-3 py-1 text-xs font-medium text-muted-foreground"
+                title={job.owner_email ?? job.user_id}
+              >
+                <UserCircle className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{ownerLabel}</span>
+              </span>
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -82,6 +113,57 @@ export function JobProgressCard({
             label={messages.job.progress}
             percent={progressPercent}
           />
+
+          {job.is_stale ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50/80 px-4 py-3 text-sm text-amber-950">
+              <p className="font-medium">{messages.job.staleWarningTitle}</p>
+              <p className="mt-1">{messages.job.staleWarningDescription}</p>
+              {job.last_progress_at ? (
+                <p className="mt-2 text-xs text-amber-900/90">
+                  {messages.job.lastProgressAt.replace(
+                    "{time}",
+                    formatDate(job.last_progress_at, locale),
+                  )}
+                </p>
+              ) : null}
+              {job.can_resume && onResume ? (
+                <Button
+                  className="mt-3"
+                  disabled={isResuming}
+                  onClick={onResume}
+                  type="button"
+                  variant="outline"
+                >
+                  <Play className="h-4 w-4" />
+                  {isResuming ? messages.job.resuming : resumeLabel}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {isRecoveredStaleJob ? (
+            <div className="rounded-md border border-sky-300 bg-sky-50/80 px-4 py-3 text-sm text-sky-950">
+              <p className="font-medium">{messages.job.recoveryNoteTitle}</p>
+              {job.stale_detected_at ? (
+                <p className="mt-1">
+                  {messages.job.staleDetectedAt.replace(
+                    "{time}",
+                    formatDate(job.stale_detected_at, locale),
+                  )}
+                </p>
+              ) : null}
+              {job.recovery_note ? <p className="mt-2">{job.recovery_note}</p> : null}
+              {job.latest_retry_job_id ? (
+                <Link
+                  className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-sky-900 underline-offset-4 hover:underline"
+                  href={href(`${ROUTES.jobs}/${job.latest_retry_job_id}`)}
+                >
+                  {messages.job.retryStartedDescription}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              ) : null}
+            </div>
+          ) : null}
 
           {isActive && events.length ? <JobStageTimeline events={events} /> : null}
 
@@ -128,18 +210,34 @@ export function JobProgressCard({
                 </Link>
               </div>
             ) : null}
+            {job.resume_of_job_id ? (
+              <div className="md:col-span-2">
+                <p className="text-sm text-muted-foreground">{messages.job.resumeOf}</p>
+                <Link
+                  className="mt-2 inline-flex items-center gap-2 font-medium text-primary underline-offset-4 hover:underline"
+                  href={href(`${ROUTES.jobs}/${job.resume_of_job_id}`)}
+                >
+                  {messages.job.openPreviousAttempt}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            ) : null}
           </div>
         </div>
       </section>
 
       {job.status === "failed" ? (
         <JobErrorCard
+          canResume={job.can_resume}
           canRetry={job.can_retry}
           errorMessageUser={job.error_message_user}
+          isResuming={isResuming}
           isRetrying={isRetrying}
           lastRetriedAt={job.last_retried_at}
           nextSteps={job.next_steps}
+          onResume={onResume}
           onRetry={onRetry}
+          resumeFromPage={job.resume_from_page}
           retryCount={job.retry_count}
         />
       ) : null}

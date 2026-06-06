@@ -17,6 +17,24 @@ type UseJobStreamOptions = {
   enabled?: boolean;
 };
 
+function mergeStreamJob(previous: JobRead | undefined, next: JobRead) {
+  if (!previous) {
+    return next;
+  }
+
+  return {
+    ...next,
+    owner_display_name: next.owner_display_name ?? previous.owner_display_name,
+    owner_email: next.owner_email ?? previous.owner_email,
+    is_stale: next.is_stale ?? previous.is_stale,
+    stale_detected_at: next.stale_detected_at ?? previous.stale_detected_at,
+    last_progress_at: next.last_progress_at ?? previous.last_progress_at,
+    recovery_note: next.recovery_note ?? previous.recovery_note,
+    latest_retry_job_id: next.latest_retry_job_id ?? previous.latest_retry_job_id,
+    latest_retry_job_status: next.latest_retry_job_status ?? previous.latest_retry_job_status,
+  };
+}
+
 export function useJobStream(jobId: string, options?: UseJobStreamOptions) {
   const queryClient = useQueryClient();
   const enabled = Boolean(jobId) && (options?.enabled ?? true);
@@ -34,11 +52,15 @@ export function useJobStream(jobId: string, options?: UseJobStreamOptions) {
       {
         onSnapshot: ({ job, events: snapshotEvents }) => {
           events = snapshotEvents;
-          queryClient.setQueryData(jobKeys.detail(jobId), job);
+          queryClient.setQueryData<JobRead | undefined>(jobKeys.detail(jobId), (previous) =>
+            mergeStreamJob(previous, job),
+          );
           queryClient.setQueryData(jobKeys.events(jobId), events);
         },
         onJob: (job) => {
-          queryClient.setQueryData(jobKeys.detail(jobId), job);
+          queryClient.setQueryData<JobRead | undefined>(jobKeys.detail(jobId), (previous) =>
+            mergeStreamJob(previous, job),
+          );
         },
         onEvent: (event) => {
           const exists = events.some((existing) => existing.id === event.id);

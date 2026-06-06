@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { JobProgressCard } from "@/components/jobs/job-progress-card";
 import { AppShell } from "@/components/layout/app-shell";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useJobProgress, useRetryJobStart } from "@/lib/hooks/use-job";
+import { useJobProgress, useResumeJobStart, useRetryJobStart } from "@/lib/hooks/use-job";
 import { useStartAndRedirect } from "@/lib/hooks/use-start-and-redirect";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { ROUTES } from "@/lib/utils/constants";
@@ -16,6 +16,7 @@ export default function JobDetailPage() {
   const { messages } = useI18n();
   const { jobQuery, eventsQuery: jobEventsQuery } = useJobProgress(params.jobId);
   const retryMutation = useRetryJobStart();
+  const resumeMutation = useResumeJobStart();
 
   async function handleRetry() {
     try {
@@ -30,6 +31,19 @@ export default function JobDetailPage() {
     }
   }
 
+  async function handleResume() {
+    try {
+      const result = await resumeMutation.mutateAsync(params.jobId);
+      handleAcceptedStart({
+        title: messages.job.resumeStartedTitle,
+        description: result.message || messages.job.resumeStartedDescription,
+        path: `${ROUTES.jobs}/${result.job.id}`,
+      });
+    } catch (error) {
+      handleStartError(messages.job.resumeFailedTitle, error);
+    }
+  }
+
   return (
     <AppShell title={messages.job.pageTitle} description={messages.job.pageDescription}>
         {jobQuery.isLoading ? (
@@ -39,8 +53,10 @@ export default function JobDetailPage() {
         ) : jobQuery.data ? (
           <JobProgressCard
             events={jobEventsQuery.data ?? []}
+            isResuming={resumeMutation.isPending}
             isRetrying={retryMutation.isPending}
             job={jobQuery.data}
+            onResume={jobQuery.data.can_resume ? handleResume : undefined}
             onRetry={jobQuery.data.can_retry ? handleRetry : undefined}
           />
         ) : null}

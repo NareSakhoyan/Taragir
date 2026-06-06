@@ -9,7 +9,11 @@ import {
   type DecisionOptions,
   type PendingDecisionAction,
 } from "@/components/discovery/discovery-candidate-sheet";
-import { DiscoveryCandidatesTable } from "@/components/discovery/discovery-candidates-table";
+import {
+  DiscoveryCandidatesTable,
+  type DiscoveryCandidateSortKey,
+  type SortDirection,
+} from "@/components/discovery/discovery-candidates-table";
 import { DiscoveryLoadingState } from "@/components/discovery/discovery-loading-state";
 import { DiscoverySummaryPanel } from "@/components/discovery/discovery-summary-panel";
 import { AppShell } from "@/components/layout/app-shell";
@@ -49,6 +53,8 @@ export default function DocumentDiscoveryPage() {
   const [resolutionStatus, setResolutionStatus] = useState("");
   const [reviewStatus, setReviewStatus] = useState("unreviewed");
   const [includeSuppressed, setIncludeSuppressed] = useState(false);
+  const [sortKey, setSortKey] = useState<DiscoveryCandidateSortKey>("occurrence_count");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [lexemeCanonicalForm, setLexemeCanonicalForm] = useState("");
@@ -85,7 +91,7 @@ export default function DocumentDiscoveryPage() {
       include_suppressed: includeSuppressed,
       limit: pageSize,
       offset: (page - 1) * pageSize,
-      sort: "interest_score_desc",
+      sort: `${sortKey}_${sortDirection}`,
     },
     documentQuery.isSuccess,
     isBuildActive ? JOB_POLL_INTERVAL_MS : false,
@@ -264,6 +270,16 @@ export default function DocumentDiscoveryPage() {
     setShowTechnicalEvidence(false);
   }
 
+  function handleSort(nextKey: DiscoveryCandidateSortKey) {
+    setPage(1);
+    if (sortKey !== nextKey) {
+      setSortKey(nextKey);
+      setSortDirection("asc");
+      return;
+    }
+    setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+  }
+
   return (
     <AppShell
       title={copy.title}
@@ -347,8 +363,11 @@ export default function DocumentDiscoveryPage() {
               setPageSize(nextPageSize);
               setPage(1);
             }}
+            onSort={handleSort}
             onViewCandidate={handleViewCandidate}
             pageSize={pageSize}
+            sortDirection={sortDirection}
+            sortKey={sortKey}
             totalPages={totalPages}
           />
         )}

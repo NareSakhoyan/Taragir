@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, UserCircle } from "lucide-react";
 
 import { DocumentStatusBadge } from "@/components/documents/document-status-badge";
 import { Progress } from "@/components/ui/progress";
@@ -22,6 +22,34 @@ function sortByNewest(jobs: JobRead[]) {
     const rightTime = new Date(right.created_at).getTime();
     return rightTime - leftTime;
   });
+}
+
+function sortOngoingJobs(jobs: JobRead[]) {
+  return [...jobs].sort((left, right) => {
+    if (Boolean(left.is_stale) !== Boolean(right.is_stale)) {
+      return left.is_stale ? -1 : 1;
+    }
+
+    const leftTime = new Date(left.created_at).getTime();
+    const rightTime = new Date(right.created_at).getTime();
+    return rightTime - leftTime;
+  });
+}
+
+function isRecoveredStaleJob(job: JobRead) {
+  return job.status === "failed" && job.error_code === "job_stale_no_progress";
+}
+
+function resolveOwnerLabel(job: JobRead) {
+  if (job.owner_display_name?.trim()) {
+    return job.owner_display_name;
+  }
+
+  if (job.owner_email?.trim()) {
+    return job.owner_email;
+  }
+
+  return job.user_id ? `User ${job.user_id.slice(0, 8)}` : null;
 }
 
 function JobListSection({
@@ -60,6 +88,7 @@ function JobListSection({
             job.progress_percent,
             job.status === "completed" ? 100 : 0,
           );
+          const ownerLabel = resolveOwnerLabel(job);
 
           return (
             <Link
@@ -76,8 +105,30 @@ function JobListSection({
                     {resolveJobStageLabel(job, messages)}
                   </p>
                 </div>
-                <DocumentStatusBadge status={job.status} />
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {job.is_stale ? (
+                    <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900">
+                      {messages.job.possiblyStuckBadge}
+                    </span>
+                  ) : null}
+                  {isRecoveredStaleJob(job) ? (
+                    <span className="rounded-full border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-900">
+                      {messages.job.recoveredBadge}
+                    </span>
+                  ) : null}
+                  <DocumentStatusBadge status={job.status} />
+                </div>
               </div>
+
+              {ownerLabel ? (
+                <div
+                  className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 px-2.5 py-1 text-xs text-muted-foreground"
+                  title={job.owner_email ?? job.user_id}
+                >
+                  <UserCircle className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{ownerLabel}</span>
+                </div>
+              ) : null}
 
               <div className="mt-3 flex items-center gap-3">
                 <Progress className="h-2" value={progressPercent} />
@@ -113,7 +164,9 @@ export function RecentJobsPanel({ jobs, compact = false }: RecentJobsPanelProps)
   }
 
   const sortedJobs = sortByNewest(jobs);
-  const ongoingJobs = sortedJobs.filter((job) => job.status === "queued" || job.status === "running");
+  const ongoingJobs = sortOngoingJobs(
+    sortedJobs.filter((job) => job.status === "queued" || job.status === "running"),
+  );
   const failedJobs = sortedJobs.filter((job) => job.status === "failed");
 
   if (compact) {

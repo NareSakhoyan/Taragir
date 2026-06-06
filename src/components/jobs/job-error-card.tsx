@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, RotateCcw } from "lucide-react";
+import { AlertTriangle, Play, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/use-i18n";
@@ -11,8 +11,12 @@ type JobErrorCardProps = {
   errorMessageUser?: string | null;
   nextSteps?: string[] | null;
   canRetry?: boolean;
+  canResume?: boolean;
   onRetry?: () => void;
+  onResume?: () => void;
   isRetrying?: boolean;
+  isResuming?: boolean;
+  resumeFromPage?: number | null;
   retryCount?: number | null;
   lastRetriedAt?: string | null;
   className?: string;
@@ -22,13 +26,21 @@ export function JobErrorCard({
   errorMessageUser,
   nextSteps,
   canRetry = false,
+  canResume = false,
   onRetry,
+  onResume,
   isRetrying = false,
+  isResuming = false,
+  resumeFromPage,
   retryCount,
   lastRetriedAt,
   className,
 }: JobErrorCardProps) {
   const { locale, messages } = useI18n();
+  const resumeLabel =
+    resumeFromPage != null
+      ? messages.job.resumeFromPage.replace("{page}", formatNumber(resumeFromPage, locale))
+      : messages.job.resumeProcessing;
 
   const resolvedSteps =
     nextSteps?.length
@@ -83,14 +95,23 @@ export function JobErrorCard({
             </div>
           ) : null}
 
-          {canRetry && onRetry ? (
-            <Button disabled={isRetrying} onClick={onRetry} type="button">
-              <RotateCcw className="h-4 w-4" />
-              {isRetrying ? messages.job.retrying : messages.job.retryProcessing}
-            </Button>
-          ) : (
-            <p className="text-sm text-muted-foreground">{messages.job.reuploadOrContact}</p>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {canRetry && onRetry ? (
+              <Button disabled={isRetrying} onClick={onRetry} type="button">
+                <RotateCcw className="h-4 w-4" />
+                {isRetrying ? messages.job.retrying : messages.job.retryProcessing}
+              </Button>
+            ) : null}
+            {canResume && onResume ? (
+              <Button disabled={isResuming} onClick={onResume} type="button" variant="outline">
+                <Play className="h-4 w-4" />
+                {isResuming ? messages.job.resuming : resumeLabel}
+              </Button>
+            ) : null}
+            {!canRetry && !canResume ? (
+              <p className="text-sm text-muted-foreground">{messages.job.reuploadOrContact}</p>
+            ) : null}
+          </div>
         </div>
       </div>
     </section>

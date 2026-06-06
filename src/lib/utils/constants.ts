@@ -4,6 +4,7 @@ export const REDIRECT_QUERY_PARAM = "next";
 export const DOCUMENT_JOB_STORAGE_KEY = "baghramyan-document-job-map";
 export const REFERENCE_SOURCE_JOB_STORAGE_KEY = "baghramyan-reference-source-job-map";
 export const ACTIVE_JOB_STORAGE_KEY = "baghramyan-active-job-ids";
+export const VIEW_MODE_STORAGE_KEY = "baghramyan-view-mode";
 export const JOB_TRACKER_EVENT = "baghramyan:job-tracker-changed";
 
 export const ROUTES = {

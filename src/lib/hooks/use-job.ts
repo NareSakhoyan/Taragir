@@ -2,7 +2,7 @@
 
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getJob, getJobEvents, listJobs, retryJobStart } from "@/lib/api/jobs";
+import { getJob, getJobEvents, listJobs, resumeJobStart, retryJobStart } from "@/lib/api/jobs";
 import { useActiveJobsStreamEnabled } from "@/lib/hooks/use-active-jobs-stream";
 import { useAuthSession } from "@/lib/hooks/use-auth-session";
 import { shouldStreamJob, useJobStream } from "@/lib/hooks/use-job-stream";
@@ -115,6 +115,29 @@ export function useRetryJobStart() {
 }
 
 export const useRetryJob = useRetryJobStart;
+
+export function useResumeJobStart() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: resumeJobStart,
+    onSuccess: ({ job }) => {
+      queryClient.setQueryData(jobKeys.detail(job.id), job);
+
+      void queryClient.invalidateQueries({ queryKey: jobKeys.all });
+      void queryClient.invalidateQueries({ queryKey: documentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: singleDocumentKeys.all });
+
+      if (job.document_id) {
+        void queryClient.invalidateQueries({
+          queryKey: singleDocumentKeys.detail(job.document_id),
+        });
+      }
+    },
+  });
+}
+
+export const useResumeJob = useResumeJobStart;
 
 export function useJobEvents(
   jobId: string,
