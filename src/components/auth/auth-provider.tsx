@@ -162,7 +162,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
         clearRememberedDocumentJobs();
       }
 
-      if (event === "INITIAL_SESSION" && initialSessionHandled) {
+      if (event === "INITIAL_SESSION" && initialSessionHandled && nextSession) {
         persistSessionCookies(nextSession);
         setSession(nextSession);
         setUser(nextSession.user);
